@@ -9,6 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import warnings
 import work
+import etf as etf
 from datetime import date
 import datetime
 from yahooquery import Ticker
@@ -17,6 +18,7 @@ warnings.filterwarnings("ignore")
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly
+from plotly.subplots import make_subplots
 
 import ipywidgets as widgets
 from ipywidgets import interact, interact_manual
@@ -27,8 +29,8 @@ st.write("""
 """)
 components.iframe("https://harshshivlani.github.io/x-asset/liveticker")
 
-st.sidebar.header('Asset Class')
-side_options = st.sidebar.radio('X-Analytics App Contents', ('Cross Asset Summary', 'Equities', 'Fixed Income', 'REITs', 'Commodities', 'FX'))
+st.sidebar.header('Cross Asset Monitor: Contents')
+side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'Equities', 'Fixed Income', 'Global Sovereign Yields', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar', 'ETF Details'))
 
 
 #Import Master Data
@@ -545,7 +547,217 @@ if side_options =='Fixed Income':
 	fi_category = st.selectbox('Category: ', fi_cats, key='fi_pivot')
 	print(st.dataframe(fi_filter(category=fi_category), height=700))
 
+##################-------------------Global Yields----------------#############################
 
+@st.cache(allow_output_mutation=True)
+def global_yields(countries=['U.S.', 'Germany', 'U.K.', 'Italy', 'France', 'Canada', 'China', 'Australia', 'Japan', 'India', 'Russia', 'Brazil', 'Philippines', 'Thailand']):
+    """
+    
+    """
+    def ytm(country, maturity):
+    	df = pd.DataFrame(investpy.get_bond_historical_data(bond= str(country)+' '+str(maturity), from_date=oneyr, to_date=tdy)['Close'])
+    	df.columns = [str(country)]
+    	df.index = pd.to_datetime(df.index)
+    	return pd.DataFrame(df)
+    
+    tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
+    oneyr = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year-1)
+    
+    tens = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
+    tens.index.name='Date'
+
+    fives = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
+    fives.index.name='Date'
+
+    twos = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
+    twos.index.name='Date'
+
+    cntry = countries
+    
+    for i in range(len(cntry)):
+                tens = tens.merge(ytm(cntry[i], '10Y'), on='Date')
+    for i in range(len(cntry)):
+                fives = fives.merge(ytm(cntry[i], '5Y'), on='Date')
+    for i in range(len(cntry)):
+                twos = twos.merge(ytm(cntry[i], '2Y'), on='Date')
+      
+    ytd = date.today() - offsets.YearBegin()
+    #10 Year
+    teny = pd.DataFrame(data= (tens.iloc[-1,:], tens.diff(1).iloc[-1,:]*100, tens.diff(1).iloc[-5,:]*100, (tens.iloc[-1,:] - tens[ytd:].iloc[0,:])*100, (tens.iloc[-1,:]-tens.iloc[0,:])*100))
+    teny = teny.T
+    cols = [('10Y', 'Yield'),('10Y', '1 Day'), ('10Y', '1 Week'), ('10Y', 'YTD'), ('10Y', '1 Year')]
+    teny.columns = pd.MultiIndex.from_tuples(cols)
+    teny.index.name='Countries'
+    
+    #5 Year
+    fivey = pd.DataFrame(data= (fives.iloc[-1,:], fives.diff(1).iloc[-1,:]*100, fives.diff(1).iloc[-6,:]*100,(fives.iloc[-1,:] - fives[ytd:].iloc[0,:])*100, (fives.iloc[-1,:]-fives.iloc[0,:])*100))
+    fivey = fivey.T
+    cols = [('5Y', 'Yield'),('5Y', '1 Day'), ('5Y', '1 Week'), ('5Y', 'YTD'), ('5Y', '1 Year')]
+    fivey.columns = pd.MultiIndex.from_tuples(cols)
+    fivey.index.name='Countries'
+    
+    #2 Year
+    twoy = pd.DataFrame(data= (twos.iloc[-1,:], twos.diff(1).iloc[-1,:]*100, twos.diff(1).iloc[-6,:]*100, (twos.iloc[-1,:] - twos[ytd:].iloc[0,:])*100, (twos.iloc[-1,:]-twos.iloc[0,:])*100))
+    twoy = twoy.T
+    cols = [('2Y', 'Yield'),('2Y', '1 Day'), ('2Y', '1 Week'), ('2Y', 'YTD'), ('2Y', '1 Year')]
+    twoy.columns = pd.MultiIndex.from_tuples(cols)
+    twoy.index.name='Countries'
+    
+    yields = twoy.merge(fivey, on='Countries').merge(teny, on='Countries')
+    
+    data = yields.style.format('{0:,.3f}%', subset=[('2Y', 'Yield'), ('5Y', 'Yield'), ('10Y', 'Yield')])\
+            .background_gradient(cmap='RdYlGn_r', subset=list(yields.columns.drop(('2Y', 'Yield')).drop(('5Y', 'Yield')).drop(('10Y', 'Yield')))).set_precision(2)
+    return data
+
+@st.cache
+def yield_curve(country='United States'):    
+    df = investpy.bonds.get_bonds_overview(country=country)
+    df.set_index('name', inplace=True)
+    if country=='United States':
+        df.index = df.index.str.strip('U.S.')
+    elif country =='United Kingdom':
+        df.index = df.index.str.strip('U.K.')
+    else:
+        df.index = df.index.str.strip(country)
+    return df['last']
+
+us = yield_curve('United States')
+uk = yield_curve('United Kingdom')
+china = yield_curve('China')
+aus = yield_curve('Australia')
+germany = yield_curve('Germany')
+japan = yield_curve('Japan')
+can = yield_curve('Canada')
+ind = yield_curve('India')
+italy = yield_curve('Italy')
+france = yield_curve('France')
+rus = yield_curve('Russia')
+phil = yield_curve('Philippines')
+thai = yield_curve('Thailand')
+brazil = yield_curve('Brazil')
+
+def show_yc():
+    fig = make_subplots(
+        rows=7, cols=2,
+        subplot_titles=("United States", "United Kingdom", "China", "Australia", "Germany", "Japan", "Canada", "India", "Italy", "France", "Brazil", "Thailand", "Philippines", "Russia"))
+
+    fig.add_trace(go.Scatter(x=us.index, y=us, mode='lines+markers', name='US', line_shape='spline'),
+                  row=1, col=1)
+
+    fig.add_trace(go.Scatter(x=uk.index, y=uk, mode='lines+markers', name='UK', line_shape='spline'),
+                  row=1, col=2)
+
+    fig.add_trace(go.Scatter(x=china.index, y=china, mode='lines+markers', name='China', line_shape='spline'),
+                  row=2, col=1)
+
+    fig.add_trace(go.Scatter(x=aus.index, y=aus, mode='lines+markers', name='Australia', line_shape='spline'),
+                  row=2, col=2)
+
+    fig.add_trace(go.Scatter(x=germany.index, y=germany, mode='lines+markers', name='Germany', line_shape='spline'),
+                  row=3, col=1)
+
+    fig.add_trace(go.Scatter(x=japan.index, y=japan, mode='lines+markers', name='Japan', line_shape='spline'),
+                  row=3, col=2)
+
+    fig.add_trace(go.Scatter(x=can.index, y=can, mode='lines+markers', name='Canada', line_shape='spline'),
+                  row=4, col=1)
+
+    fig.add_trace(go.Scatter(x=ind.index, y=ind, mode='lines+markers', name='India', line_shape='spline'),
+                  row=4, col=2)
+
+    fig.add_trace(go.Scatter(x=italy.index, y=italy, mode='lines+markers', name='Italy', line_shape='spline'),
+                  row=5, col=1)
+
+    fig.add_trace(go.Scatter(x=france.index, y=france, mode='lines+markers', name='France', line_shape='spline'),
+                  row=5, col=2)
+
+    fig.add_trace(go.Scatter(x=brazil.index, y=brazil, mode='lines+markers', name='Brazil', line_shape='spline'),
+                  row=6, col=1)
+
+    fig.add_trace(go.Scatter(x=thai.index, y=thai, mode='lines+markers', name='Thailand', line_shape='spline'),
+                  row=6, col=2)
+
+    fig.add_trace(go.Scatter(x=phil.index, y=phil, mode='lines+markers', name='Philippines', line_shape='spline'),
+                  row=7, col=1)
+
+    fig.add_trace(go.Scatter(x=rus.index, y=rus, mode='lines+markers', name='Russia', line_shape='spline'),
+                  row=7, col=2)
+
+    fig.update_layout(height=3000, width=900, showlegend=False)
+    fig.update_yaxes(title_text="Yield (%)", showgrid=True, zeroline=True, zerolinecolor='red', tickformat = '.3f')
+    fig.update_xaxes(title_text="Maturity (Yrs)")
+    fig.update_layout(font=dict(family="Segoe UI, monospace", size=13, color="#7f7f7f")
+                  ,plot_bgcolor = 'White', hovermode='x')
+    fig.update_traces(hovertemplate='Maturity: %{x} <br>Yield: %{y:.3f}%')
+    fig.update_yaxes(automargin=True)
+
+    return fig
+
+
+if side_options == 'Global Sovereign Yields':
+	st.write(global_yields())
+	st.header('Global Sovereign Yield Curves')
+	st.write(show_yc())
+	st.markdown('Data Source: Investing.com')
+
+
+
+
+
+###############------------------Extras---------------------------##############################
+if side_options=='Macroeconomic Data':
+     st.subheader('Macroeconomic Data')
+     cat = st.selectbox('Select Data Category: ', ('World Manufacturing PMIs', 'GDP', 'Retail Sales', 'Inflation', 'Unemployment'))
+     if cat == 'World Manufacturing PMIs':
+         st.subheader('World Manufacturing PMIs')
+         continent = st.selectbox('Select Continent', ('World', 'G20', 'America', 'Europe', 'Asia', 'Africa'))
+         st.dataframe(etf.world_pmis(continent=continent), width=1000, height=1500)
+     elif cat == 'GDP':
+         st.subheader('World GDP Data')
+         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
+         st.dataframe(etf.gdp(continent=continent), width=1200, height=2000)
+     elif cat=='Retail Sales':
+         st.subheader('Retail Sales')
+         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
+         time = st.selectbox('Select Period: ', ('YoY', 'MoM'))
+         st.dataframe(etf.retail(continent=continent, time=time), width=1200, height=2000)
+     elif cat == 'Inflation':
+         st.subheader('World Inflation Data')
+         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
+         st.dataframe(etf.inflation(continent=continent), width=1200, height=2000)
+     elif cat == 'Unemployment':
+         st.subheader('World Unemployment Data')
+         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
+         st.dataframe(etf.unemp(continent=continent), width=1200, height=2000)
+
+if side_options == 'Economic Calendar':
+     st.subheader('Economic Calendar')
+     components.iframe("https://harshshivlani.github.io/x-asset/ecocalendar", height=800)
+     #importances = st.multiselect('Importance: ', ['Low', 'Medium', 'High'], ['Medium', 'High'])
+     #st.dataframe(etf.eco_calendar(importances=importances), width=2000, height=1200)
+
+if side_options == 'Country Macroeconomic Profile':
+     st.subheader('Country Macroeconomic Profile')
+     countries_list = st.selectbox('Select Country: ', ["United-States", "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua-and-Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bosnia-and-Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina-Faso","Burundi","Cambodia","Cameroon","Canada","Cape-Verde","Cayman-Islands","Central-African-Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa-Rica","Croatia","Cuba","Cyprus","Czech-Republic","Denmark","Djibouti","Dominica","Dominican-Republic","East-Timor","Ecuador","Egypt","El-Salvador","Equatorial-Guinea","Eritrea","Estonia","Ethiopia","Euro-Area","Faroe-Islands","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hong-Kong","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle-of-Man","Israel","Italy","Ivory-Coast","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Macao","Macedonia","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands","New-Zealand","Nicaragua","Niger","Nigeria","North-Korea","Norway","Oman","Pakistan","Palestine","Panama","Paraguay","Peru","Philippines","Poland","Portugal","Puerto-Rico","Qatar","Republic-of-the-Congo","Romania","Russia","Rwanda","Sao-Tome-and-Principe","Saudi-Arabia","Senegal","Serbia","Seychelles","Sierra-Leone","Singapore","Slovakia","Slovenia","Somalia","South-Africa","South-Korea","South-Sudan","Spain","Sri-Lanka","Sudan","Suriname","Swaziland","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Trinidad-and-Tobago","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United-Arab-Emirates","United-Kingdom","United-States","Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"])
+     data_type = st.selectbox('Data Category: ', ['Overview', 'GDP', 'Labour', 'Inflation', 'Money', 'Trade', 'Government', 'Taxes', 'Business', 'Consumer'])
+     st.dataframe(etf.country_macros(country=countries_list, data_type=data_type), height=1200)
+
+
+if side_options == 'ETF Details':
+    def etf_details():
+        ticker_name = st.text_input('Enter Ticker Name', value='URTH')
+        asset =  st.selectbox('ETF Asset Class:', ('Equity/REIT ETF', 'Fixed Income ETF'))
+        if asset=='Equity/REIT ETF':
+            details = st.selectbox('Select Data Type:', ('General Overview', 'Top 15 Holdings', 'Sector Exposure',
+                                    'Market Cap Exposure', 'Country Exposure', 'Asset Allocation'))
+        elif asset=='Fixed Income ETF':
+            details = st.selectbox('Select Data Type:', ('General Overview', 'Top 15 Holdings', 'Bond Sector Exposure',
+                                    'Coupon Breakdown', 'Credit Quality Exposure', 'Maturity Profile'))
+        return [ticker_name, details, asset]
+
+    etf_details = etf_details()
+    st.write(etf.etf_details(etf_details[0].upper(), etf_details[1], etf_details[2]))
+    st.write('Data Source: ETFdb.com')
 
 
 
@@ -728,3 +940,6 @@ if side_options == 'Cross Asset Summary':
 		start= st.date_input("Custom Start Date: ", date(2020,3,23), key='fx_summ')
 		end = st.date_input("Custom End Date: ", date.today(), key='fx_summ1')
 		print(st.dataframe(returns_hmap(data=fx[list(fx.columns)], asset_class='Currencies', cat=list(fx.columns), start=start, end=end), height=1500))
+
+
+st.sidebar.markdown('Developed by Harsh Shivlani')
