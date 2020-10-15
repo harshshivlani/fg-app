@@ -323,17 +323,20 @@ def filter_reit(country, subind, maxmcap, minmcap):
 def reit_pivot_table(country, ind, maxmcap, minmcap):
     df = reits.copy()
     df = df[(df["Market Cap"]<=maxmcap) & (df["Market Cap"]>minmcap)]
+    rets_cols = ['1D', '1M', '3M', '6M', 'YTD']
     if country != "All" and ind=="All":
-    	df = df[df['Country']==country].groupby(by="Sub-Industry").median()
-    	df = df.sort_values(by='Market Cap', ascending=False)
+    	df = df[df['Country'].values==country]
+    	df = mcap_weighted(df, rets_cols, groupby='Sub-Industry')
+    	#df = df.sort_values(by='Market Cap', ascending=False)
     elif country == "All" and ind=="All":
-    	df = df.groupby(by="Sub-Industry").median()
-    	df = df.sort_values(by='Market Cap', ascending=False)
+    	df = mcap_weighted(df, rets_cols, groupby='Sub-Industry')
+    	#df = df.sort_values(by='Market Cap', ascending=False)
     elif country == "All" and ind!="All":
-    	df = df[df['Sub-Industry']==ind].groupby(by='Country').median()
-    	df = df.sort_values(by='Market Cap', ascending=False)
+    	df = df[df['Sub-Industry'].values==ind]
+    	df = mcap_weighted(df, rets_cols, groupby='Country')
+    	#df = df.sort_values(by='Market Cap', ascending=False)
     else:
-    	df = df[(df['Country']==country) & (df['Sub-Industry']==ind)].set_index('Ticker')
+    	df = df[(df['Country'].values==country) & (df['Sub-Industry'].values==ind)].set_index('Ticker')
     	df[df.columns[5:13]] = df[df.columns[5:13]].fillna(0.00) 
     	df = df.sort_values(by='Market Cap', ascending=False)
 
@@ -344,10 +347,7 @@ def reit_pivot_table(country, ind, maxmcap, minmcap):
                    .format('{0:,.2f}M', subset=df.columns[-1])\
                    .background_gradient(cmap='RdYlGn', subset=df.columns[5:14])
     else:
-    	return df.style.format('{0:,.2f}%', subset=df.columns[1:-1])\
-                   .format('{0:,.2f}B', subset=df.columns[0])\
-                   .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='RdYlGn', subset=df.columns[2:-1])
+    	return df
 
 if side_options == 'REITs':
 	st.title('Global REITs Pivot Table')
@@ -593,6 +593,7 @@ def load_fi_etfs():
 
 fi_etfs = load_fi_etfs()
 fi_cats = ['None', 'All'] + list(fi_etfs['Category'].unique())
+fi_cats1 = ['All'] + list(fi_etfs['Category'].unique())
 fi_cntry = ['All'] + list(fi_etfs['Country'].unique())
 fi_cur = ['All'] + list(fi_etfs['Currency'].unique())
 
@@ -627,7 +628,10 @@ def fi_filter(category, country, currency):
 if side_options =='Fixed Income':
 	fi_country = st.selectbox('Country: ', fi_cntry, key='fi_cnt_pivot')
 	fi_currency = st.selectbox('Currency: ', fi_cur, key='fi_cur_pivot')
-	fi_category = st.selectbox('Category: ', fi_cats, key='fi_pivot')
+	if fi_currency !="All":
+		fi_category = st.selectbox('Category: ', fi_cats1, key='fi_pivot')
+	else:
+		fi_category = st.selectbox('Category: ', fi_cats, key='fi_pivot')
 
 	print(st.dataframe(fi_filter(category=fi_category, country=fi_country, currency=fi_currency), height=700))
 
