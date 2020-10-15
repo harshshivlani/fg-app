@@ -351,7 +351,7 @@ def reit_pivot_table(country, ind, maxmcap, minmcap):
 
 if side_options == 'REITs':
 	st.title('Global REITs Pivot Table')
-	st.subheader('Compare Median Return across Countries & GICS Sub-Industries')
+	st.subheader('Compare Market Cap Weighted Returns across Countries & GICS Sub-Industries')
 	data = reits.copy()
 	country = st.selectbox('Country: ', reit_countries, key='pivot')
 	if country == "All":
