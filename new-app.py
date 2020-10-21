@@ -10,10 +10,12 @@ import streamlit.components.v1 as components
 import warnings
 import work
 import etf as etf
-from datetime import date
 import datetime
+from datetime import date, timedelta
+import yahooquery
 from yahooquery import Ticker
 warnings.filterwarnings("ignore")
+
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -65,6 +67,21 @@ all_countries = ["All"] + list(data['Country'].unique())
 @st.cache(allow_output_mutation=True)
 def indices_func():
 	return work.updated_world_indices('All', 'Daily')
+
+@st.cache(allow_output_mutation=True)
+def regional_indices():
+	return work.regional_indices('All')
+
+reg_indices = regional_indices()
+major_indices = pd.read_excel('World_Indices_List.xlsx')['Indices'].to_list()
+
+def usd_indices_rets(countries, indices, start, end):
+	if countries=="":
+		return print(st.warnings("Please Select a Country or All"))
+	else:
+		return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end), major_indices=major_indices, countries=countries, indices=indices)
+
+
 
 @st.cache()
 def world_map(timeperiod):
@@ -301,6 +318,38 @@ def load_reits():
 reits = load_reits()
 reit_countries = ['All'] + list(reits['Country'].unique())
 
+
+def reit_boxplot(country, industry, period):
+    data = reits.copy().round(2)
+    if country=='All':
+    	data = data[:]
+    else:
+    	data = data[data['Country']==country]
+
+
+    if industry=="None":
+        fig = px.box(data, x="Country", y=period, color="Country", 
+                     hover_data=["Sub-Industry", "Ticker", "Name","Market Cap",
+                                "Dividend Yield", "Dividend Type", "Currency", '1D', '1W', '1M','3M',
+                                 '6M', 'YTD', '1Y', '% 52W High'], points="all")
+    elif industry=="All":
+    	fig = px.box(data, x="Sub-Industry", y=period, color="Sub-Industry", 
+                     hover_data=["Country", "Ticker", "Name","Market Cap",
+                                "Dividend Yield", "Dividend Type", "Currency", '1D', '1W', '1M','3M',
+                                 '6M', 'YTD', '1Y', '% 52W High'], points="all")
+    else:
+        fig = px.box(data[data["Sub-Industry"]==industry], x="Country", y=period, color="Country", 
+                     hover_data=["Sub-Industry", "Ticker", "Name","Market Cap",
+                                "Dividend Yield", "Dividend Type", "Currency", '1D', '1W', '1M','3M',
+                                 '6M', 'YTD', '1Y', '% 52W High'], points="all")       
+
+    fig.update_layout(title = 'Global REITs Country Wise USD Returns - '+str(period), 
+                      font=dict(family="Segoe UI, monospace", size=13, color="#7f7f7f"),
+                      legend_title_text='Countries', plot_bgcolor = 'White')
+    fig.update_yaxes(ticksuffix="%")
+    #fig.update_traces(hovertemplate='Date: %{x} <br>Return: %{y:.2%}') 
+    return fig
+
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def filter_reit(country, subind, maxmcap, minmcap):
     df = reits.copy()
@@ -363,6 +412,16 @@ if side_options == 'REITs':
 	maxmcap = st.number_input('Maximum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max().astype(float), value=data['Market Cap'].max().astype(float), step=0.1, key='reitspivot-max')
 	minmcap = st.number_input('Minimum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max().astype(float), value=1.0, step=0.1, key='reitspivot-min')
 	print(st.dataframe(reit_pivot_table(country=country, ind=ind, maxmcap=maxmcap, minmcap=minmcap), height=700))
+
+	st.title('Global REITs Box Plot')
+	countries_reit = st.selectbox('Country: ', reit_countries, index=0)
+	period_reit = st.selectbox('Period: ', reits.columns[6:13], index=0)
+	if countries_reit!='All':
+		industry_reit = st.selectbox('Industry: ', ["All"] + list(reits[reits['Country']==countries_reit]["Sub-Industry"].unique()), index=0)
+	else:
+		industry_reit = st.selectbox('Industry: ', ["All", "None"] + list(reits["Sub-Industry"].unique()), index=0)
+	st.plotly_chart(reit_boxplot(country=countries_reit,period=period_reit, industry=industry_reit), use_container_width=True)
+
 
 	st.title('Global REITs Screener')
 	st.subheader('Filter Global REITs by Countries, GICS Sub-Industries & Market Capitalization (USD)')
@@ -861,9 +920,18 @@ if side_options == 'Cross Asset Summary':
 	timeframe = st.selectbox('Timeframe: ', ['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)'], index=2)
 	print(st.plotly_chart(world_map(timeperiod=timeframe)))
 
-	st.subheader('Global Equity Indices')
-	indices = indices_func()
-	st.dataframe(indices[0], height=500)
+	st.subheader('Global Equity & Sectoral Indices')
+	#indices = indices_func()
+	#st.dataframe(indices[0], height=500)
+	countries_dxy = ['All'] + list(pd.read_excel('World_Indices_List.xlsx')['Country'].unique())
+	#indices_dxy = ['All', 'Major']
+	#indices_dxy = st.selectbox('Indices: ', indices_dxy, index=0)
+	#if indices_dxy=='All':
+	countries_dxy = st.multiselect('Countries: ', countries_dxy, default=['All'])
+	start_dxy= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='usd_indices')
+	end_dxy = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='usd_indices')
+	usd_indices = usd_indices_rets(countries = countries_dxy, indices="All", start=start_dxy, end=end_dxy)
+	st.dataframe(usd_indices, height=500)
 
 	st.subheader('Industry Summary: ')
 	st.write('*Market Cap Weighted Industry Wise USD Returns - Global')

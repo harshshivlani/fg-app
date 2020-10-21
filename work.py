@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 import edhec_risk_kit as erk
 import edhec_risk_kit_206 as erk1
 import yfinance as yf
-from datetime import date
+from datetime import date, timedelta
+import yahooquery
+from yahooquery import Ticker
 #from pandas_datareader import data
 import matplotlib.pyplot as plt
 from matplotlib import colors
@@ -365,12 +367,13 @@ def updated_world_indices(category='Major', timeframe='Daily'):
     
     """
     tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
+    fromdate = '01/01/' + str(date.today().year)
     idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category)
     index_names = list(idxs['Indices'])
     country_names = list(idxs['Country'])
     
     def idx_data(index, country):
-        df = investpy.get_index_historical_data(index=index, country=country, from_date='01/01/2020', to_date=tdy)['Close']
+        df = investpy.get_index_historical_data(index=index, country=country, from_date=fromdate, to_date=tdy)['Close']
         df = pd.DataFrame(df)
         df.columns = [index]
         return df
@@ -537,3 +540,102 @@ def index_cons(securities, weights, freq='Quarterly'):
         bmk2f.iloc[:,6][i+1] = (bmk2f.iloc[:,7][i]*bmk2f.iloc[:,0][i+1]) + (bmk2f.iloc[:,8][i]*bmk2f.iloc[:,1][i+1]) + (bmk2f.iloc[:,9][i]*bmk2f.iloc[:,2][i+1])
 
     return pd.DataFrame(bmk2f[['Index']])
+
+
+
+
+
+##REGIONAL INDICES###################
+
+def regional_indices(country):
+    """
+    """
+    def idx_data(index, country):
+        start1 = date(date.today().year-1, date.today().month-2, date.today().day)
+        bdates = pd.DataFrame(index=pd.bdate_range(start=start1, end=date.today()))
+        bdates.index.name='Date'
+        tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
+        start_ytd = '01/01/' + str(date.today().year)
+        start_1y = str(date.today().day)+'/'+str(date.today().month-2)+'/'+str(date.today().year-1)
+        df = investpy.get_index_historical_data(index=index, country=country, from_date=start_1y, to_date=tdy)['Close']
+        df = bdates.join(pd.DataFrame(df), on='Date').ffill()
+        df.columns = [index]
+        return df
+
+    reg_indices = pd.read_excel('Regional Indices.xlsx', sheet_name=country)
+    idxs_list = list(reg_indices[country])
+    cntry_list = reg_indices['Country']
+    eod = date.today() - timedelta(1)
+    
+    cur = yf.download(list(reg_indices['Currency'].dropna()), progress=False)['Adj Close']
+    cur.index.name = 'Date'
+    us_list = list(reg_indices[reg_indices['Country'].values=='United States'][country])
+    
+    cntry = idx_data(idxs_list[0], cntry_list[0])
+    for i in range(1, len(idxs_list)):
+        index = idx_data(idxs_list[i], cntry_list[i])
+        cntry = cntry.merge(index, on='Date')
+        cntry = cntry[:eod]
+    
+    #cur = yf.download(list(reg_indices['Currency'].dropna()))['Adj Close']
+
+    def usd_converter():
+        idxs = cntry[us_list]
+        countries = list(reg_indices[reg_indices['Country'].values!='United States']['Country'].unique())
+        for i in range(len(countries)):
+            cntry_list = list(reg_indices[reg_indices['Country']==countries[i]][country])
+            cur_ = reg_indices[reg_indices['Country']==countries[i]]['Currency'].unique()[0]
+            idxs = idxs.merge(np.multiply(cntry[cntry_list], pd.DataFrame(cur[cur_])[cntry.index[1]:]), on='Date')
+        return idxs
+
+    data = usd_converter()
+    return data, cntry, reg_indices
+
+def drawdowns(data):
+    """
+    Max Drawdown in the current calendar year
+    """
+    data = data.ffill()
+    return_series = pd.DataFrame(data.pct_change().dropna()[str(date.today().year):])
+    wealth_index = 1000*(1+return_series).cumprod()
+    previous_peaks = wealth_index.cummax()
+    drawdowns = (wealth_index - previous_peaks)/previous_peaks
+    return drawdowns.min(axis=0)
+
+def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1)):
+    data = df[0].ffill()
+    cntry = df[1]
+    reg_indices = df[2]
+    cntry_list = reg_indices['Country']
+    year = date.today().year 
+    df = pd.DataFrame(data = (data.iloc[-1,:], data.pct_change(1).iloc[-1,:], data.pct_change(5).iloc[-1,:], data.pct_change(21).iloc[-1,:],
+                                  data.pct_change(63).iloc[-1,:], data.pct_change(126).iloc[-1,:], data[str(year):].iloc[-1,:]/data[str(year):].iloc[0,:]-1,
+                                  data.pct_change(252).iloc[-1,:], data[start:end].iloc[-1,:]/data[start:end].iloc[0,:]-1, drawdowns(data)))
+    df.index = ['Price','1-Day', '1-Week', '1-Month', '3-Month', '6-Month', 'YTD', '1-Year', 'Custom', 'Max DD']
+    df = df[list(reg_indices['All'])]
+    df = df.T
+    df['Price'] = cntry[reg_indices['All']].iloc[-1,:]
+    df.iloc[:,1:] = (df.iloc[:,1:]*100)
+    df.index.name = 'Indices'
+    cntry_list = pd.DataFrame(cntry_list)
+    cntry_list.index = df.index
+    cntry_list.index.name = 'Indices'
+    df = cntry_list.merge(df, on='Indices')
+    return df
+
+
+def regional_indices_style(df, major_indices, countries='All', sortby='1-Day', indices='All'):
+    if indices =='Major':
+        df2 = df.T[major_indices].T
+    else:
+        if countries != ['All']:
+            df2 = df[df['Country'].isin(countries)]
+        else:
+            df2 = df[:]
+    
+    df2  = df2.sort_values(by=sortby, ascending=False)
+    df2 = df2.round(2).style.format('{0:,.2f}%', subset=df.columns[2:])\
+                .format('{0:,.0f}', subset=df.columns[1])\
+                .background_gradient(cmap='RdYlGn', subset=df.columns[2:])\
+                .set_properties(**{'font-size': '10pt',})
+    return df2
