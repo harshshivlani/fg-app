@@ -31,7 +31,7 @@ st.write("""
 """)
 components.iframe("https://harshshivlani.github.io/x-asset/liveticker")
 st.sidebar.header('Cross Asset Monitor: Contents')
-side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'Equities', 'Fixed Income', 'Global Sovereign Yields', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar', 'ETF Details'))
+side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'Equities', 'Fixed Income ETFs', 'Global Sovereign Yields', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar', 'ETF Details'))
 
 
 #Import Master Data
@@ -72,14 +72,40 @@ def indices_func():
 def regional_indices():
 	return work.regional_indices('All')
 
+
 reg_indices = regional_indices()
 major_indices = pd.read_excel('World_Indices_List.xlsx')['Indices'].to_list()
 
-def usd_indices_rets(countries, indices, start, end):
+@st.cache(allow_output_mutation=True)
+def bond_indices():
+	return work.regional_indices('Bonds')
+
+bon_indices = bond_indices()
+teny_indices = pd.read_excel('Regional Indices.xlsx', sheet_name='10Y')['10Y'].to_list()
+
+def usd_indices_rets(countries, start, end):
 	if countries=="":
 		return print(st.warnings("Please Select a Country or All"))
 	else:
-		return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end), major_indices=major_indices, countries=countries, indices=indices)
+		return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end), countries=countries)
+
+countries_bond_indices = ['All'] +  list(pd.read_excel('Regional Indices.xlsx', sheet_name='Bonds')['Country'].unique())
+
+
+def usd_bond_indices_rets(countries, start, end, opt='All'):
+	if opt=='All':
+		usd_bonds = work.usd_indices_rets(df=bon_indices, start=start, end=end, teny='No')
+		if countries=="":
+			return print(st.warnings("Please Select a Country or All"))
+		else:
+			return work.regional_indices_style(usd_bonds, countries=countries)
+	elif opt=='10Y Bond Indices':
+		usd_bonds = work.usd_indices_rets(df=bon_indices, start=start, end=end, teny='Yes')
+		#usd_bonds = usd_bonds.T[teny].T
+		return work.regional_indices_style(usd_bonds, countries=['All'])
+
+
+
 
 
 
@@ -684,7 +710,7 @@ def fi_filter(category, country, currency):
 	                   .format('{0:,.2f}M', subset=["20D T/O"])\
 	                   .background_gradient(cmap='RdYlGn', subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
 
-if side_options =='Fixed Income':
+if side_options =='Fixed Income ETFs':
 	fi_country = st.selectbox('Country: ', fi_cntry, key='fi_cnt_pivot')
 	fi_currency = st.selectbox('Currency: ', fi_cur, key='fi_cur_pivot')
 	if fi_currency !="All":
@@ -840,12 +866,28 @@ def show_yc():
 
     return fig
 
-
+global_yields_sov = global_yields()
+global_yc = show_yc()
 if side_options == 'Global Sovereign Yields':
-	st.write(global_yields())
-	st.header('Global Sovereign Yield Curves')
-	st.write(show_yc())
+	st.subheader('Global Sovereign Yields (2Y, 5Y, 10Y)')
+	st.write(global_yields_sov)
+	st.subheader('Global Government Bond Indices')
+	opt_bond = st.selectbox('Category: ', ['10Y Bond Indices', 'All'], key='bond_opt')
+	if opt_bond =='All':
+		countries_bond = st.multiselect('Countries: ', countries_bond_indices, default=['All'], key='bond_indices1')
+		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices1')
+		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices1')
+		usd_bond_indices = usd_bond_indices_rets(countries=countries_bond, start=start_bond, end=end_bond, opt=opt_bond)
+	else:
+		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices2')
+		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices2')
+		usd_bond_indices = usd_bond_indices_rets(countries='All', start=start_bond, end=end_bond, opt=opt_bond)
+	st.dataframe(usd_bond_indices, height=500)
+
+	st.subheader('Global Sovereign Yield Curves')
+	st.write(global_yc)
 	st.markdown('Data Source: Investing.com')
+
 
 
 
@@ -930,8 +972,22 @@ if side_options == 'Cross Asset Summary':
 	countries_dxy = st.multiselect('Countries: ', countries_dxy, default=['All'])
 	start_dxy= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='usd_indices')
 	end_dxy = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='usd_indices')
-	usd_indices = usd_indices_rets(countries = countries_dxy, indices="All", start=start_dxy, end=end_dxy)
+	usd_indices = usd_indices_rets(countries = countries_dxy, start=start_dxy, end=end_dxy)
 	st.dataframe(usd_indices, height=500)
+
+
+	st.subheader('Global Government Bond Indices')
+	opt_bond = st.selectbox('Category: ', ['10Y Bond Indices', 'All'], key='opt_bond1')
+	if opt_bond =='All':
+		countries_bond = st.multiselect('Countries: ', countries_bond_indices, default=['All'], key='bond_indices_sum')
+		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
+		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
+		usd_bond_indices = usd_bond_indices_rets(countries=countries_bond, start=start_bond, end=end_bond, opt=opt_bond)
+	else:
+		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
+		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
+		usd_bond_indices = usd_bond_indices_rets(countries='All', start=start_bond, end=end_bond, opt=opt_bond)
+	st.dataframe(usd_bond_indices, height=500)
 
 	st.subheader('Industry Summary: ')
 	st.write('*Market Cap Weighted Industry Wise USD Returns - Global')
@@ -1096,16 +1152,14 @@ if side_options == 'Cross Asset Summary':
 		print(st.dataframe(bot_reit))		
 		
 	st.header('Commodities')
-	if st.checkbox('Show Commodities Performance', value=True):
-		start= st.date_input("Custom Start Date: ", date(2020,3,23))
-		end = st.date_input("Custom End Date: ", date.today())
-		print(st.dataframe(returns_hmap(data=comd[list(comd.columns)], asset_class='Commodities', cat=list(comd.columns), start=start, end=end), height=1500))
+	start= st.date_input("Custom Start Date: ", date(2020,3,23), key='comm_summ1')
+	end = st.date_input("Custom End Date: ", date.today(), key='comm_summ1')
+	print(st.dataframe(returns_hmap(data=comd[list(comd.columns)], asset_class='Commodities', cat=list(comd.columns), start=start, end=end), height=1500))
 
 	st.header('FX/Currencies')
-	if st.checkbox('Show FX Performance', value=True):
-		start= st.date_input("Custom Start Date: ", date(2020,3,23), key='fx_summ')
-		end = st.date_input("Custom End Date: ", date.today(), key='fx_summ1')
-		print(st.dataframe(returns_hmap(data=fx[list(fx.columns)], asset_class='Currencies', cat=list(fx.columns), start=start, end=end), height=1500))
+	start= st.date_input("Custom Start Date: ", date(2020,3,23), key='fx_summ1')
+	end = st.date_input("Custom End Date: ", date.today(), key='fx_summ1')
+	print(st.dataframe(returns_hmap(data=fx[list(fx.columns)], asset_class='Currencies', cat=list(fx.columns), start=start, end=end), height=1500))
 
 
 st.sidebar.markdown('Developed by Harsh Shivlani')

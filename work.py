@@ -602,19 +602,26 @@ def drawdowns(data):
     drawdowns = (wealth_index - previous_peaks)/previous_peaks
     return drawdowns.min(axis=0)
 
-def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1)):
-    data = df[0].ffill()
-    cntry = df[1]
-    reg_indices = df[2]
+def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1), teny='No'):
+    tens=pd.read_excel('Regional Indices.xlsx', sheet_name='10Y')['10Y'].to_list()
+    if teny=='Yes':
+        data = df[0].ffill()[tens]
+        cntry = df[1][tens]
+        reg_indices = df[2].set_index(df[2].columns[0]).T[tens].T.reset_index()
+    else:
+        data =df[0]
+        cntry=df[1]
+        reg_indices=df[2]
+        
     cntry_list = reg_indices['Country']
     year = date.today().year 
     df = pd.DataFrame(data = (data.iloc[-1,:], data.pct_change(1).iloc[-1,:], data.pct_change(5).iloc[-1,:], data.pct_change(21).iloc[-1,:],
                                   data.pct_change(63).iloc[-1,:], data.pct_change(126).iloc[-1,:], data[str(year):].iloc[-1,:]/data[str(year):].iloc[0,:]-1,
                                   data.pct_change(252).iloc[-1,:], data[start:end].iloc[-1,:]/data[start:end].iloc[0,:]-1, drawdowns(data)))
     df.index = ['Price','1-Day', '1-Week', '1-Month', '3-Month', '6-Month', 'YTD', '1-Year', 'Custom', 'Max DD']
-    df = df[list(reg_indices['All'])]
+    df = df[list(reg_indices[reg_indices.columns[0]])]
     df = df.T
-    df['Price'] = cntry[reg_indices['All']].iloc[-1,:]
+    df['Price'] = cntry[reg_indices[reg_indices.columns[0]]].iloc[-1,:]
     df.iloc[:,1:] = (df.iloc[:,1:]*100)
     df.index.name = 'Indices'
     cntry_list = pd.DataFrame(cntry_list)
@@ -624,16 +631,13 @@ def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1)
     return df
 
 
-def regional_indices_style(df, major_indices, countries='All', sortby='1-Day', indices='All'):
-    if indices =='Major':
-        df2 = df.T[major_indices].T
+def regional_indices_style(df,countries=['All'], teny='No'):
+    if countries != ['All']:
+        df2 = df[df['Country'].isin(countries)]
     else:
-        if countries != ['All']:
-            df2 = df[df['Country'].isin(countries)]
-        else:
-            df2 = df[:]
+        df2 = df[:]
     
-    df2  = df2.sort_values(by=sortby, ascending=False)
+    df2  = df2.sort_values(by='1-Day', ascending=False)
     df2 = df2.round(2).style.format('{0:,.2f}%', subset=df.columns[2:])\
                 .format('{0:,.0f}', subset=df.columns[1])\
                 .background_gradient(cmap='RdYlGn', subset=df.columns[2:])\
