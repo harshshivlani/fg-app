@@ -25,6 +25,8 @@ from plotly.subplots import make_subplots
 import ipywidgets as widgets
 from ipywidgets import interact, interact_manual
 from IPython.core.display import display, HTML
+import yahooquery
+from yahooquery import Ticker
 
 st.write("""
 # Cross Asset Market Analytics
