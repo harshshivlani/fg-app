@@ -14,6 +14,9 @@ import datetime
 from datetime import date, timedelta
 import yahooquery
 from yahooquery import Ticker
+import base64
+from io import BytesIO
+import openpyxl
 warnings.filterwarnings("ignore")
 
 
@@ -138,18 +141,25 @@ def world_map(timeperiod):
 
 #EQUITIES - SCREENER
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def filter_table(country, ind, subind, maxmcap, minmcap):
+def filter_table(country, maxmcap, minmcap, ind=['All'], subind='All'):
     df = data.copy()
     df = df[(df["Market Cap"].values<=maxmcap) & (df["Market Cap"].values>minmcap)]
     #df = df[(df['Country'].values==country) & (df["Industry"].values.isin(ind)) & (df["Sub-Industry"].values == subind)]
+    if country != "All":
+    	if country =='Emerging Markets':
+    		df = df[df['Country'].isin(ems)]
+    	elif country=='Asian Markets':
+    		df = df[df['Country'].isin(asia)]
+    	elif country =='European Markets':
+    		df = df[df['Country'].isin(europe)]
+    	else:
+    		df = df[df['Country'].values==country]
+
     if ind != ["All"]:
         df = df[df["Industry"].isin(ind)]
     
     if subind != "All":
     	df = df[df["Sub-Industry"].values == subind]
-
-    if country != "All":
-    	df = df[df['Country'].values==country]
 
     df[percs] = df[percs].fillna(0.00)	
     st.write('There are {} securities in this screen'.format(len(df)))
@@ -219,12 +229,28 @@ def load_eqetf_data():
 
 retsetf = ["1D","1W","1M","3M","6M","YTD","1Y","3Y","% 52W High"]
 eq_etfs = load_eqetf_data()
+ems = ['Argentina', 'Brazil', 'Chile', 'Peru', 'Colombia', 'Mexico', 'Czech Republic','Egypt','Greece','Hungary',
+									'Poland','Qatar','Russia','Saudi Arabia', 'South Africa', 'Turkey','United Arab Emirates', 'China', 'India',
+									'Indonesia', 'South Korea','Malaysia','Pakistan','Philippines','Taiwan','Thailand']
+asia=['Bangladesh', 'Sri Lanka','Vietnam','China', 'India','Indonesia', 'South Korea','Malaysia','Pakistan','Philippines','Taiwan','Thailand']
+europe=['Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Ireland', 'Italy','Netherlands', 'Norway',
+									'Portugal','Spain','Sweden','Switzerland','United Kingdom','Greece', 'Poland','Hungary','Czech Republic']
+
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def eqetf_filter(category, country, currency):
 	df = eq_etfs.copy()
-	if country != 'All':
+	if country == 'All':
+		df = df[:]
+	elif country =='Emerging Markets':
+		df = df[df['Country'].isin(ems)]
+	elif country=='Asian Markets':
+		df = df[df['Country'].isin(asia)]
+	elif country =='European Markets':
+		df = df[df['Country'].isin(europe)]
+	else:
 		df = df[df['Country']==country]
+
 
 	if currency != 'All':
 		df = df[df['Currency']==currency]
@@ -249,6 +275,24 @@ def eqetf_filter(category, country, currency):
 def num_func(df, sortby, num):
     return df.sort_values(by=sortby, ascending=False)[:num] if num>0 else df.sort_values(by=sortby, ascending=False)[num:].sort_values(by=sortby)
 
+def to_excel(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1')
+    writer.save()
+    processed_data = output.getvalue()
+    return processed_data
+
+def get_table_download_link(df):
+    """Generates a link allowing the data in a given panda dataframe to be downloaded
+    in:  dataframe
+    out: href string
+    """
+    val = to_excel(df)
+    b64 = base64.b64encode(val)  # val looks like b'...'
+    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="extract.xlsx">Download csv file</a>' # decode b'abc' => abc
+
+
 if side_options == 'Equities':
 	#PIVOT - EQUITY
 	st.title('Global Equities - Pivot Table')
@@ -271,24 +315,38 @@ if side_options == 'Equities':
 	st.subheader('Filter Global Stocks by Countries, GICS Industries, GICS Sub-Industries & Market Capitalization (USD)')
 	maxmcap = st.number_input('Maximum MCap (Bn USD): ', min_value=0.50, max_value=data['Market Cap'].max(), value=data['Market Cap'].max(), step=0.1, key='eqscreener-max')
 	minmcap = st.number_input('Minimum MCap (Bn USD): ', min_value=0.50, max_value=data['Market Cap'].max(), value=1.0, step=0.1, key='eqscreener-min')
-	country = st.selectbox('Country: ', all_countries, index=0)
+	country = st.selectbox('Country: ', ['Emerging Markets', 'Asian Markets', 'European Markets']+ all_countries, index=0)
 	data = data[(data["Market Cap"]<=maxmcap) & (data["Market Cap"]>minmcap)]
 	if country == "All":
 		all_ind = ["All"] + list(data['Industry'].unique())
 		all_subind = ["All"] + list(data['Sub-Industry'].unique())
+	elif country=='Emerging Markets':
+		all_ind = ["All"] + list(data[data['Country'].isin(ems)]['Industry'].unique())
+		all_subind = ["All"] + list(data[data['Country'].isin(ems)]['Sub-Industry'].unique())
+	elif country=='Asian Markets':
+		all_ind = ["All"] + list(data[data['Country'].isin(asia)]['Industry'].unique())
+		all_subind = ["All"] + list(data[data['Country'].isin(asia)]['Sub-Industry'].unique())
+	elif country=='European Markets':
+		all_ind = ["All"] + list(data[data['Country'].isin(europe)]['Industry'].unique())
+		all_subind = ["All"] + list(data[data['Country'].isin(europe)]['Sub-Industry'].unique())
 	else:
 		all_ind = ["All"] + list(data[data['Country'].values==country]['Industry'].unique())
 		all_subind = ["All"] + list(data[data['Country'].values==country]['Sub-Industry'].unique())
 
 	ind = st.multiselect(label='GICS Industry Name: ', options = all_ind, default=['All'])
 	if ind!=["All"] and country!="All":
-		subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].values==country][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
+		if country=='Emerging Markets':
+			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].isin(ems)][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
+		if country=='Asian Markets':
+			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].isin(asia)][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
+		if country=='European Markets':
+			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].isin(europe)][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
+		else:
+			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].values==country][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
 	elif ind!=["All"] and country=="All":
 		subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Industry'].isin(ind)]['Sub-Industry'].unique()))
-	elif ind==["All"] and country!="All":
-		subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].values==country]['Sub-Industry'].unique()))
 	else:
-		subind = st.selectbox('GICS Sub Industry Name: ', all_subind)
+		subind='All'
 
 	if country == 'All':
 		st.write('*Since the table consists of 10000+ securities, please select sorting and number of securities to be displayed below (- for bottom)')
@@ -299,10 +357,14 @@ if side_options == 'Equities':
 	                                    .format('{0:,.2f}B', subset=bns)\
 	                                    .background_gradient(cmap='RdYlGn', subset=gradient), height=600)
 	else:
-		st.dataframe(filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap).sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=percs)\
+		eqs_f = filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap).sort_values(by='1D', ascending=False)
+		eqs_f_styled = eqs_f.style.format('{0:,.2f}%', subset=percs)\
 	    								.format('{0:,.2f}', subset=nums)\
 	                                    .format('{0:,.2f}B', subset=bns)\
-	                                    .background_gradient(cmap='RdYlGn', subset=gradient), height=600)
+	                                    .background_gradient(cmap='RdYlGn', subset=gradient)
+		st.dataframe(eqs_f_styled, height=600)
+		st.markdown(get_table_download_link(eqs_f_styled), unsafe_allow_html=True)
+
 
 	#ETFS - EQUITY
 	st.title('Global Equity ETFs')
