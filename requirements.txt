@@ -22,3 +22,5 @@ bs4
 beautifulsoup4
 yahooquery
 openpyxl
+xlsxwriter
+tqdm
