@@ -9,6 +9,8 @@ from datetime import date, timedelta
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import investpy
+import yahooquery
+from yahooquery import Ticker
 
 
 def world_indices(end_date, weekly='No'):
