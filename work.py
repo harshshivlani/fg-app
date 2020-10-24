@@ -384,8 +384,11 @@ def updated_world_indices(category='Major', timeframe='Daily'):
     #Stitch Local Currency Indices Data
     for i in range(len(idxs)):
         df = df.join(idx_data(index_names[i], country_names[i]), on='Date')
-    if timeframe=='Daily':    
-        df1 = df.iloc[:-1,:].ffill().dropna()
+    if timeframe=='Daily':
+        if date.today().weekday() == 5 or date.today().weekday() == 6:
+            df1 = df.ffill().dropna()
+        else:
+            df1 = df.iloc[:-1,:].ffill().dropna()
     else:
         df1 = df.ffill().dropna()
     df1.index.name = 'Date'
@@ -585,7 +588,7 @@ def regional_indices(country):
         for i in range(len(countries)):
             cntry_list = list(reg_indices[reg_indices['Country']==countries[i]][country])
             cur_ = reg_indices[reg_indices['Country']==countries[i]]['Currency'].unique()[0]
-            idxs = idxs.merge(np.multiply(cntry[cntry_list], pd.DataFrame(cur[cur_])[cntry.index[1]:]), on='Date')
+            idxs = idxs.merge(np.multiply(cntry[cntry_list], pd.DataFrame(cur[cur_])[cntry.index[0]:]), on='Date')
         return idxs
 
     data = usd_converter()
