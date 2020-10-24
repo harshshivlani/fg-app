@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 import yfinance as yf
-import yahooquery
 import investpy
 import streamlit as st
 import streamlit.components.v1 as components
@@ -12,8 +11,6 @@ import work
 import etf as etf
 import datetime
 from datetime import date, timedelta
-import yahooquery
-from yahooquery import Ticker
 import base64
 from io import BytesIO
 import openpyxl
