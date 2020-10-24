@@ -21,3 +21,4 @@ streamlit
 bs4
 beautifulsoup4
 yahooquery
+openpyxl
