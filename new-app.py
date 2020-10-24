@@ -290,7 +290,7 @@ def get_table_download_link(df):
     """
     val = to_excel(df)
     b64 = base64.b64encode(val)  # val looks like b'...'
-    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="extract.xlsx">Download csv file</a>' # decode b'abc' => abc
+    return f'<a href="data:application/octet-stream;base64,{b64.decode()}" download="extract.xlsx">Export to Excel</a>' # decode b'abc' => abc
 
 
 if side_options == 'Equities':
@@ -308,14 +308,16 @@ if side_options == 'Equities':
 	st.write('Select Market Cap Range:')
 	maxmcap = st.number_input('Maximum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max(), value=data['Market Cap'].max(), step=0.1, key='eqpivot-max')
 	minmcap = st.number_input('Minimum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max(), value=1.0, step=0.1, key ='eqpivot-min')
-	print(st.dataframe(pivot_table(country=country, ind=ind, maxmcap=maxmcap, minmcap=minmcap), height=500))
+	eq_pivot_styled = pivot_table(country=country, ind=ind, maxmcap=maxmcap, minmcap=minmcap)
+	print(st.dataframe(eq_pivot_styled, height=500))
+	st.markdown(get_table_download_link(eq_pivot_styled), unsafe_allow_html=True)
 
 	#SCREENER - EQUITY
 	st.title('Global Equities Screener')
 	st.subheader('Filter Global Stocks by Countries, GICS Industries, GICS Sub-Industries & Market Capitalization (USD)')
 	maxmcap = st.number_input('Maximum MCap (Bn USD): ', min_value=0.50, max_value=data['Market Cap'].max(), value=data['Market Cap'].max(), step=0.1, key='eqscreener-max')
 	minmcap = st.number_input('Minimum MCap (Bn USD): ', min_value=0.50, max_value=data['Market Cap'].max(), value=1.0, step=0.1, key='eqscreener-min')
-	country = st.selectbox('Country: ', ['Emerging Markets', 'Asian Markets', 'European Markets']+ all_countries, index=0)
+	country = st.selectbox('Country: ',all_countries + ['Emerging Markets', 'Asian Markets', 'European Markets'], index=0)
 	data = data[(data["Market Cap"]<=maxmcap) & (data["Market Cap"]>minmcap)]
 	if country == "All":
 		all_ind = ["All"] + list(data['Industry'].unique())
@@ -352,7 +354,8 @@ if side_options == 'Equities':
 		st.write('*Since the table consists of 10000+ securities, please select sorting and number of securities to be displayed below (- for bottom)')
 		sortby = st.selectbox('Sort By: ', ['1D','1W', '1M', '3M', '6M', 'YTD'])
 		num = st.number_input('Show Top/Bottom ', min_value=-len(data), max_value=len(data), value=100, step=1, key='eqscreener_num')
-		st.dataframe(num_func(filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap), sortby, num).style.format('{0:,.2f}%', subset=percs)\
+		if st.button('Show Results'):
+			st.dataframe(num_func(filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap), sortby, num).style.format('{0:,.2f}%', subset=percs)\
 	    								.format('{0:,.2f}', subset=nums)\
 	                                    .format('{0:,.2f}B', subset=bns)\
 	                                    .background_gradient(cmap='RdYlGn', subset=gradient), height=600)
@@ -362,8 +365,9 @@ if side_options == 'Equities':
 	    								.format('{0:,.2f}', subset=nums)\
 	                                    .format('{0:,.2f}B', subset=bns)\
 	                                    .background_gradient(cmap='RdYlGn', subset=gradient)
-		st.dataframe(eqs_f_styled, height=600)
-		st.markdown(get_table_download_link(eqs_f_styled), unsafe_allow_html=True)
+		if st.button('Show Results'):
+			st.dataframe(eqs_f_styled, height=600)
+			st.markdown(get_table_download_link(eqs_f_styled), unsafe_allow_html=True)
 
 
 	#ETFS - EQUITY
@@ -386,7 +390,9 @@ if side_options == 'Equities':
 		eq_cats = ['None', 'All'] + list(eq_etfs['Category'].unique())
 
 	eq_category = st.selectbox('Category: ', eq_cats, key='fi_pivot')
-	print(st.dataframe(eqetf_filter(category=eq_category, country=eq_country, currency=eq_currency), height=700))
+	eq_etfs_styled = eqetf_filter(category=eq_category, country=eq_country, currency=eq_currency)
+	print(st.dataframe(eq_etfs_styled, height=700))
+	st.markdown(get_table_download_link(eq_etfs_styled), unsafe_allow_html=True)
 
 
 # ----------------------------- REITS SIDEPANEL ---------------------------------------------------------------------
