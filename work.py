@@ -5,8 +5,6 @@ import edhec_risk_kit as erk
 import edhec_risk_kit_206 as erk1
 import yfinance as yf
 from datetime import date, timedelta
-import yahooquery
-from yahooquery import Ticker
 #from pandas_datareader import data
 import matplotlib.pyplot as plt
 from matplotlib import colors
