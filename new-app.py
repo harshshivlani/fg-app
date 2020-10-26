@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 import yfinance as yf
+import yahooquery
 import investpy
 import streamlit as st
 import streamlit.components.v1 as components
@@ -11,6 +12,8 @@ import work
 import etf as etf
 import datetime
 from datetime import date, timedelta
+import yahooquery
+from yahooquery import Ticker
 import base64
 from io import BytesIO
 import openpyxl
@@ -25,8 +28,7 @@ from plotly.subplots import make_subplots
 import ipywidgets as widgets
 from ipywidgets import interact, interact_manual
 from IPython.core.display import display, HTML
-import yahooquery
-from yahooquery import Ticker
+
 
 st.write("""
 # Cross Asset Market Analytics
@@ -162,7 +164,7 @@ def filter_table(country, maxmcap, minmcap, ind=['All'], subind='All'):
 
     df[percs] = df[percs].fillna(0.00)	
     st.write('There are {} securities in this screen'.format(len(df)))
-    st.write('Maximum Market Cap is {}B USD'.format(df['Market Cap'].max().round(0)))
+    st.write('Maximum Market Cap is {}B USD'.format(df['Market Cap'].max().round(2)))
     st.write('Minimum Market Cap is {}B USD'.format(df['Market Cap'].min().round(2)))
     df_style = df.set_index('Ticker').sort_values(by='1D', ascending=False)
     df_style = df_style.round(2)   
@@ -338,9 +340,9 @@ if side_options == 'Equities':
 	if ind!=["All"] and country!="All":
 		if country=='Emerging Markets':
 			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].isin(ems)][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
-		if country=='Asian Markets':
+		elif country=='Asian Markets':
 			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].isin(asia)][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
-		if country=='European Markets':
+		elif country=='European Markets':
 			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].isin(europe)][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
 		else:
 			subind = st.selectbox('GICS Sub Industry Name: ', ["All"] + list(data[data['Country'].values==country][data['Industry'].isin(ind)]['Sub-Industry'].unique()))
@@ -1043,18 +1045,6 @@ if side_options == 'Cross Asset Summary':
 	st.dataframe(usd_indices, height=500)
 
 
-	st.subheader('Global Government Bond Indices')
-	opt_bond = st.selectbox('Category: ', ['10Y Bond Indices', 'All'], key='opt_bond1')
-	if opt_bond =='All':
-		countries_bond = st.multiselect('Countries: ', countries_bond_indices, default=['All'], key='bond_indices_sum')
-		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
-		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
-		usd_bond_indices = usd_bond_indices_rets(countries=countries_bond, start=start_bond, end=end_bond, opt=opt_bond)
-	else:
-		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
-		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
-		usd_bond_indices = usd_bond_indices_rets(countries='All', start=start_bond, end=end_bond, opt=opt_bond)
-	st.dataframe(usd_bond_indices, height=500)
 
 	st.subheader('Industry Summary: ')
 	st.write('*Market Cap Weighted Industry Wise USD Returns - Global')
@@ -1133,7 +1123,21 @@ if side_options == 'Cross Asset Summary':
 
 
 
-	st.header('Fixed Income ETFs')
+	st.header('Fixed Income')
+	st.subheader('Global Government Bond Indices')
+	opt_bond = st.selectbox('Category: ', ['10Y Bond Indices', 'All'], key='opt_bond1')
+	if opt_bond =='All':
+		countries_bond = st.multiselect('Countries: ', countries_bond_indices, default=['All'], key='bond_indices_sum')
+		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
+		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
+		usd_bond_indices = usd_bond_indices_rets(countries=countries_bond, start=start_bond, end=end_bond, opt=opt_bond)
+	else:
+		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
+		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
+		usd_bond_indices = usd_bond_indices_rets(countries='All', start=start_bond, end=end_bond, opt=opt_bond)
+	st.dataframe(usd_bond_indices, height=500)
+
+	st.header('Fixed Income ETFs')	
 	st.write('Median Category Returns:')
 	df = fi_etfs.copy()
 	df = df.groupby(by="Category").median()
@@ -1176,20 +1180,13 @@ if side_options == 'Cross Asset Summary':
 		country = st.selectbox('Country: ', reit_countries, key='reit_pivot_summ')
 		if country == 'All':
 			df = df.groupby(by="Sub-Industry").median()
-			#df = df.drop('Market Cap', axis=1)
-			df = df.sort_values(by='1D', ascending=False).round(2).style.format('{0:,.2f}%', subset=df.columns[1:11])\
-                   .format('{0:,.2f}B', subset=df.columns[0])\
-                   .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='RdYlGn', subset=df.columns[2:11])
-			print(st.dataframe(df))
 		else:
 			df = df[df['Country']==country].groupby(by="Sub-Industry").median()
-			#df = df.drop('Market Cap', axis=1)
-			df = df.sort_values(by='1D', ascending=False).round(2).style.format('{0:,.2f}%', subset=df.columns[1:11])\
-                   .format('{0:,.2f}B', subset=df.columns[0])\
-                   .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='RdYlGn', subset=df.columns[2:11])
-			print(st.dataframe(df))
+
+		df = df.drop(['Market Cap', 'Dividend Yield'], axis=1)
+		df = df.sort_values(by='1D', ascending=False).round(2).style.format('{0:,.2f}%')\
+                   .background_gradient(cmap='RdYlGn')
+		print(st.dataframe(df))
 
 	if st.checkbox('Show Top Global REITs Movers', value=True):
 		df = reits.copy()
