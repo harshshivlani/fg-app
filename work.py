@@ -588,7 +588,7 @@ def regional_indices(country):
         for i in range(len(countries)):
             cntry_list = list(reg_indices[reg_indices['Country']==countries[i]][country])
             cur_ = reg_indices[reg_indices['Country']==countries[i]]['Currency'].unique()[0]
-            idxs = idxs.merge(np.multiply(cntry[cntry_list], pd.DataFrame(cur[cur_])[cntry.index[0]:]), on='Date')
+            idxs = idxs.merge(np.multiply(cntry[cntry_list], pd.DataFrame(cur[cur_])[cntry.index[0]:cntry.index[-1]]), on='Date')
         return idxs
 
     data = usd_converter()
