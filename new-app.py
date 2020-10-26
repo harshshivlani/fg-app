@@ -1176,7 +1176,7 @@ if side_options == 'Cross Asset Summary':
 	st.subheader('Global REITs Summary: ')
 	if st.checkbox('Show Global REITs Industry Median Return Summary', value=True):
 		df = reits.copy()
-
+		df = df.drop('20D T/O', axis=1)
 		country = st.selectbox('Country: ', reit_countries, key='reit_pivot_summ')
 		if country == 'All':
 			df = df.groupby(by="Sub-Industry").median()
