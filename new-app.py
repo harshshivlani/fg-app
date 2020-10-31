@@ -702,7 +702,7 @@ def import_data_yahoo(asset_class):
     df.index.name='Date'
 
     #download and merge all data
-    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history(start=date(date.today().year -1 , date.today().month-1, date.today().day))['adjclose']
+    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history())['adjclose']
     df1 = pd.DataFrame(df1).unstack().T.reset_index(0).drop('level_0', axis=1)
     df1.index.name = 'Date'
     df1.index = pd.to_datetime(df1.index)
