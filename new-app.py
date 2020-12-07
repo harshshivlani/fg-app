@@ -17,6 +17,7 @@ from yahooquery import Ticker
 import base64
 from io import BytesIO
 import openpyxl
+import seaborn as sns
 warnings.filterwarnings("ignore")
 
 
@@ -1058,10 +1059,10 @@ if side_options == 'Cross Asset Summary':
 
 	st.subheader('Industry Summary: ')
 	st.write('*Market Cap Weighted Industry Wise USD Returns - Global')
-	ret_inds_summ = st.selectbox('Median Return TimeFrame: ', ['1D', '1M', '3M', '6M', 'YTD'], key='sort_inds_summ')
+	ret_inds_summ = st.selectbox('Median Return TimeFrame: ', ['1D', '1W', '1M', '3M', 'YTD'], key='sort_inds_summ')
 	country_inds = st.selectbox('Country: ', all_countries, key='sum inds')
 	df = data.copy()
-	rets_cols = ['1D', '1M', '3M', '6M', 'YTD']
+	rets_cols = ['1D', '1W', '1M', '3M', 'YTD']
 	df[rets_cols] = df[rets_cols]/100
 	if country_inds !='All':
 		df = df[df['Country']==country_inds]
@@ -1079,14 +1080,13 @@ if side_options == 'Cross Asset Summary':
 	df = mcap_weighted
 	df[rets_cols] = df[rets_cols]*100
 	inds_eq_summ = df[:]
-
-	top_inds = inds_eq_summ.sort_values(by=ret_inds_summ, ascending=False).head().style.format('{0:,.2f}%', subset=["1D","1M","3M","6M","YTD"])\
+	top_inds = inds_eq_summ.sort_values(by=ret_inds_summ, ascending=False).head().style.format('{0:,.2f}%', subset=["1D","1W","1M","3M","YTD"])\
                							.format('{0:,.2f}B', subset=["Market Cap"])\
-               							.background_gradient(cmap='YlGn', subset=["1D","1M","3M","6M","YTD"])
+               							.background_gradient(cmap='YlGn', subset=["1D","1W","1M","3M","YTD"])
 
-	bot_inds = inds_eq_summ.sort_values(by=ret_inds_summ).head().style.format('{0:,.2f}%', subset=["1D","1M","3M","6M","YTD"])\
+	bot_inds = inds_eq_summ.sort_values(by=ret_inds_summ).head().style.format('{0:,.2f}%', subset=["1D","1W","1M","3M","YTD"])\
                							.format('{0:,.2f}B', subset=["Market Cap"])\
-               							.background_gradient(cmap='YlOrRd_r', subset=["1D","1M","3M","6M","YTD"])											
+               							.background_gradient(cmap='YlOrRd_r', subset=["1D","1W","1M","3M","YTD"])											
 
 	st.markdown('**Global Industries  -  Top Gainers**')
 	st.write(top_inds)
@@ -1095,7 +1095,7 @@ if side_options == 'Cross Asset Summary':
 
 	st.subheader('Global Individual Stocks Summary: ')
 	st.write('*Top USD returns across the World')
-	sort_summ = st.selectbox('Return TimeFrame: ', ['1D', '1M', '3M', '6M', 'YTD'], key='stock_summary')
+	sort_summ = st.selectbox('Return TimeFrame: ', ['1D', '1W', '1M', '3M', 'YTD'], key='stock_summary')
 	country_summ = st.selectbox('Country: ', all_countries)
 	data[percs] = data[percs].fillna(0.00)
 
