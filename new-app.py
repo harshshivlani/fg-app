@@ -42,14 +42,15 @@ side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'E
 @st.cache(allow_output_mutation=True)
 def load_eq_data():
 	data = pd.read_excel('GSTOCKS_N.xlsx')
-	data.columns = ["Ticker","Name","Market Cap","Country","Industry","Sub-Industry","1D","1M","3M","6M","YTD","ROE","ROCE","EBITDA (%)","Profit (%)","P/E","Rev YoY","EBITDA YoY","Profit YoY","Rev T12M","FCF T12M"]
+	data.columns = ["Ticker","Name","Market Cap","Country","Industry","Sub-Industry","1D","1M","3M","YTD","ROE","ROCE","EBITDA (%)",
+	"Profit (%)","P/E","Rev YoY","EBITDA YoY","Profit YoY","Rev T12M","FCF T12M", "1W"]
 	data['Market Cap'] = data['Market Cap']/10**9
 	data['Rev T12M'] = data['Rev T12M']/10**9
 	data['FCF T12M'] = data['FCF T12M']/10**9
 	data['FCF Yield'] = (data['FCF T12M']/data['Market Cap'])*100
 	data['MCap-OG'] = data['Market Cap']/(1+data['YTD']/100)
 	data = data[['Ticker', 'Name', 'Country', 'Industry', 'Sub-Industry', 'Market Cap', 'MCap-OG',
-	'1D', '1M', '3M', '6M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
+	'1D', '1W', '1M', '3M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
 	'Profit (%)', 'Rev YoY', 'EBITDA YoY', 'Profit YoY', 'FCF Yield', 'Rev T12M',
 	'FCF T12M', 'P/E']]
 	data['Country'].replace("United Arab Emirates", "UAE", inplace=True)
@@ -58,11 +59,11 @@ def load_eq_data():
 
 data = load_eq_data()
 
-nums = ['1D', '1M', '3M', '6M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
+nums = ['1D', '1W', '1M', '3M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
        'Profit (%)', 'Rev YoY', 'EBITDA YoY', 'Profit YoY', 'FCF Yield', 'Rev T12M',
        'FCF T12M', 'P/E']
-gradient = ['1D', '1M', '3M', '6M', 'YTD']
-percs = ['1D', '1M', '3M', '6M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
+gradient = ['1D', '1W', '1M', '3M', 'YTD']
+percs = ['1D', '1W', '1M', '3M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
        'Profit (%)', 'Rev YoY', 'EBITDA YoY', 'Profit YoY', 'FCF Yield']
 bns = ['Market Cap', 'MCap-OG', 'Rev T12M','FCF T12M']
 all_countries = ["All"] + list(data['Country'].unique())
@@ -172,7 +173,7 @@ def filter_table(country, maxmcap, minmcap, ind=['All'], subind='All'):
 
 #EQUITIES - PIVOT TABLE
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def mcap_weighted(df, rets_cols, groupby):
+def mcap_weighted(df, rets_cols, groupby, reit=False):
 	df[rets_cols] = df[rets_cols]/100
 	old_mcap = (1/(1+df[rets_cols])).multiply(df['Market Cap'], axis='rows')
 	old = old_mcap.join(df['Market Cap'])
@@ -182,16 +183,20 @@ def mcap_weighted(df, rets_cols, groupby):
 	mcap_weight = pd.DataFrame(df.groupby(groupby).sum()['Market Cap']).merge(change_sum.divide(old_sum, axis='rows'), on=groupby)
 	df = mcap_weight
 	df[rets_cols] = df[rets_cols]*100
-	df = df.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=["1D","1M","3M","6M","YTD"])\
+	if reit == True:
+		subs = ["1D","1W","1M","3M","6M","YTD"]
+	else:
+		subs = ["1D","1W","1M","3M","YTD"]
+	df = df.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=subs)\
 	                   .format('{0:,.2f}B', subset=["Market Cap"])\
-	                   .background_gradient(cmap='RdYlGn', subset=["1D","1M","3M","6M","YTD"])
+	                   .background_gradient(cmap='RdYlGn', subset=subs)
 	return df
 
 #@st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def pivot_table(country, ind, maxmcap, minmcap):
 	df = data.copy()
 	df = df[(df["Market Cap"]<=maxmcap) & (df["Market Cap"]>minmcap)]
-	rets_cols = ['1D', '1M', '3M', '6M', 'YTD']
+	rets_cols = ['1D', '1W', '1M', '3M', 'YTD']
 	if country != "All" and ind==["All"]:
 		df = df[df['Country'].values==country]
 		df = mcap_weighted(df, rets_cols, 'Industry')
@@ -353,13 +358,16 @@ if side_options == 'Equities':
 
 	if country == 'All':
 		st.write('*Since the table consists of 10000+ securities, please select sorting and number of securities to be displayed below (- for bottom)')
-		sortby = st.selectbox('Sort By: ', ['1D','1W', '1M', '3M', '6M', 'YTD'])
+		sortby = st.selectbox('Sort By: ', ['1D','1W', '1M', '3M', 'YTD'])
 		num = st.number_input('Show Top/Bottom ', min_value=-len(data), max_value=len(data), value=100, step=1, key='eqscreener_num')
 		if st.button('Show Results'):
-			st.dataframe(num_func(filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap), sortby, num).style.format('{0:,.2f}%', subset=percs)\
+			all_eq1 = num_func(filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap), sortby, num).style.format('{0:,.2f}%', subset=percs)\
 	    								.format('{0:,.2f}', subset=nums)\
 	                                    .format('{0:,.2f}B', subset=bns)\
-	                                    .background_gradient(cmap='RdYlGn', subset=gradient), height=600)
+	                                    .background_gradient(cmap='RdYlGn', subset=gradient)
+			st.dataframe(all_eq1, height=600)
+			st.markdown(get_table_download_link(all_eq1), unsafe_allow_html=True)
+
 	else:
 		eqs_f = filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap).sort_values(by='1D', ascending=False)
 		eqs_f_styled = eqs_f.style.format('{0:,.2f}%', subset=percs)\
@@ -467,17 +475,17 @@ def filter_reit(country, subind, maxmcap, minmcap):
 def reit_pivot_table(country, ind, maxmcap, minmcap):
     df = reits.copy()
     df = df[(df["Market Cap"]<=maxmcap) & (df["Market Cap"]>minmcap)]
-    rets_cols = ['1D', '1M', '3M', '6M', 'YTD']
+    rets_cols = ['1D', '1W', '1M', '3M', '6M', 'YTD']
     if country != "All" and ind=="All":
     	df = df[df['Country'].values==country]
-    	df = mcap_weighted(df, rets_cols, groupby='Sub-Industry')
+    	df = mcap_weighted(df, rets_cols, groupby='Sub-Industry', reit=True)
     	#df = df.sort_values(by='Market Cap', ascending=False)
     elif country == "All" and ind=="All":
-    	df = mcap_weighted(df, rets_cols, groupby='Sub-Industry')
+    	df = mcap_weighted(df, rets_cols, groupby='Sub-Industry', reit=True)
     	#df = df.sort_values(by='Market Cap', ascending=False)
     elif country == "All" and ind!="All":
     	df = df[df['Sub-Industry'].values==ind]
-    	df = mcap_weighted(df, rets_cols, groupby='Country')
+    	df = mcap_weighted(df, rets_cols, groupby='Country', reit=True)
     	#df = df.sort_values(by='Market Cap', ascending=False)
     else:
     	df = df[(df['Country'].values==country) & (df['Sub-Industry'].values==ind)].set_index('Ticker')
@@ -530,8 +538,10 @@ if side_options == 'REITs':
 	subind = st.selectbox('GICS Industry Name: ', all_subind)
 	maxmcap = st.number_input('Maximum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max(), value=data['Market Cap'].max(), step=0.1, key='reitscreener-max')
 	minmcap = st.number_input('Minimum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max(), value=1.0, step=0.1, key='reitscreener-min')
+	reits_filter1 = filter_reit(country=country, subind=subind, maxmcap=maxmcap, minmcap=minmcap)
+	print(st.dataframe(reits_filter1, height=600))
+	st.markdown(get_table_download_link(reits_filter1), unsafe_allow_html=True)
 
-	print(st.dataframe(filter_reit(country=country, subind=subind, maxmcap=maxmcap, minmcap=minmcap), height=600))
 
 
 
@@ -702,7 +712,7 @@ def import_data_yahoo(asset_class):
     df.index.name='Date'
 
     #download and merge all data
-    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history()['adjclose']
+    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history(start=date(date.today().year -1 , date.today().month-1, date.today().day))['adjclose']
     df1 = pd.DataFrame(df1).unstack().T.reset_index(0).drop('level_0', axis=1)
     df1.index.name = 'Date'
     df1.index = pd.to_datetime(df1.index)
@@ -1177,6 +1187,7 @@ if side_options == 'Cross Asset Summary':
 	if st.checkbox('Show Global REITs Industry Median Return Summary', value=True):
 		df = reits.copy()
 		df = df.drop('20D T/O', axis=1)
+
 		country = st.selectbox('Country: ', reit_countries, key='reit_pivot_summ')
 		if country == 'All':
 			df = df.groupby(by="Sub-Industry").median()
