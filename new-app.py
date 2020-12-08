@@ -571,11 +571,30 @@ def import_data(asset_class):
     	df.columns = [name]
     	return df
 
-    #download and merge all data
+    #download and merge all dat
     for i in range(len(etf_list)):
     	df = df.join(hist_data_comd(etf_list['Commodities'][i]), on='Date')
     df = df[:yest].ffill().dropna()
     df.index.name = 'Date'
+
+    if asset_class=='Commodities':	
+	    ussteel = pd.DataFrame(quandl.get("CHRIS/CME_HR1")['Settle'])
+	    ussteel.columns = ["US Steel"]
+
+	    ironore = pd.DataFrame(quandl.get("CHRIS/CME_TIO1")['Settle'])
+	    ironore.columns = ["Iron Ore"]
+
+	    shfe = pd.DataFrame(quandl.get("CHRIS/SHFE_RB1")['Settle'])
+	    shfe.columns = ["SHFE Steel Rebar"]
+
+	    rubber = pd.DataFrame(quandl.get("CHRIS/SHFE_RU1")['Settle'])
+	    rubber.columns = ["SHFE Natural Rubber"]
+
+	    soybeans = pd.DataFrame(quandl.get("CHRIS/CME_S1")['Settle'])
+	    soybeans.columns = ["CME Soybeans"]
+	    admetals = ussteel.merge(ironore, on='Date').merge(shfe, on='Date').merge(rubber, on='Date').merge(soybeans, on='Date')
+	    df = df.join(admetals, on='Date').ffill().dropna()
+
     return df
 
 from pandas.tseries import offsets
@@ -727,20 +746,6 @@ def import_data_yahoo(asset_class):
     return df
 
 comd = import_data('Commodities')
-#Add Steel & Iron Ore Data from Quandl
-ussteel = pd.DataFrame(quandl.get("CHRIS/CME_HR1")['Settle'])
-ussteel.columns = ["US Steel"]
-
-ironore = pd.DataFrame(quandl.get("CHRIS/CME_TIO1")['Settle'])
-ironore.columns = ["Iron Ore"]
-
-shfe = pd.DataFrame(quandl.get("CHRIS/SHFE_RB1")['Settle'])
-shfe.columns = ["SHFE Steel Rebar"]
-
-admetals = ussteel.merge(ironore, on='Date').merge(shfe, on='Date')
-comd = comd.join(admetals, on='Date').ffill().dropna()
-
-
 fx = import_data_yahoo('Currencies')
 
 if side_options == 'Commodities':
