@@ -17,7 +17,9 @@ from yahooquery import Ticker
 import base64
 from io import BytesIO
 import openpyxl
-import seaborn as sns
+import quandl
+quandl.ApiConfig.api_key = "KZ69tzkHfXscfQ1qcJ5K"
+
 warnings.filterwarnings("ignore")
 
 
@@ -725,6 +727,20 @@ def import_data_yahoo(asset_class):
     return df
 
 comd = import_data('Commodities')
+#Add Steel & Iron Ore Data from Quandl
+ussteel = pd.DataFrame(quandl.get("CHRIS/CME_HR1")['Settle'])
+ussteel.columns = ["US Steel"]
+
+ironore = pd.DataFrame(quandl.get("CHRIS/CME_TIO1")['Settle'])
+ironore.columns = ["Iron Ore"]
+
+shfe = pd.DataFrame(quandl.get("CHRIS/SHFE_RB1")['Settle'])
+shfe.columns = ["SHFE Steel Rebar"]
+
+admetals = ussteel.merge(ironore, on='Date').merge(shfe, on='Date')
+comd = comd.join(admetals, on='Date').ffill().dropna()
+
+
 fx = import_data_yahoo('Currencies')
 
 if side_options == 'Commodities':
