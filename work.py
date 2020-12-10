@@ -5,12 +5,12 @@ import edhec_risk_kit as erk
 import edhec_risk_kit_206 as erk1
 import yfinance as yf
 from datetime import date, timedelta
+import yahooquery
+from yahooquery import Ticker
 #from pandas_datareader import data
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import investpy
-import yahooquery
-from yahooquery import Ticker
 
 
 def world_indices(end_date, weekly='No'):
@@ -398,6 +398,8 @@ def updated_world_indices(category='Major', timeframe='Daily'):
         pos = -2
     elif timeframe =='Weekly':
         pos = -6
+    elif timeframe =='Monthly':
+        pos = -23
     #Local Currency Returns Table
     oned_lcl = pd.concat([df1.iloc[-1,:],
                          df1.iloc[-1,:]-df1.iloc[pos,:],
@@ -605,7 +607,7 @@ def drawdowns(data):
     drawdowns = (wealth_index - previous_peaks)/previous_peaks
     return drawdowns.min(axis=0)
 
-def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1), teny='No'):
+def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1), teny='No', major='No'):
     tens=pd.read_excel('Regional Indices.xlsx', sheet_name='10Y')['10Y'].to_list()
     if teny=='Yes':
         data = df[0].ffill()[tens]
@@ -631,7 +633,11 @@ def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1)
     cntry_list.index = df.index
     cntry_list.index.name = 'Indices'
     df = cntry_list.merge(df, on='Indices')
-    return df
+    major_idxs = list(pd.read_excel('Regional Indices.xlsx', sheet_name='Major')['Major'])
+    if major =='Yes':
+        return df[df.index.isin(major_idxs)]
+    else:
+        return df
 
 
 def regional_indices_style(df,countries=['All'], teny='No'):

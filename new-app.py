@@ -91,11 +91,14 @@ def bond_indices():
 bon_indices = bond_indices()
 teny_indices = pd.read_excel('Regional Indices.xlsx', sheet_name='10Y')['10Y'].to_list()
 
-def usd_indices_rets(countries, start, end):
+def usd_indices_rets(countries, start, end, major='No'):
 	if countries=="":
 		return print(st.warnings("Please Select a Country or All"))
 	else:
-		return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end), countries=countries)
+		if major == 'Yes':
+			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='Yes'), countries=countries)
+		else:
+			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='No'), countries=countries)
 
 countries_bond_indices = ['All'] +  list(pd.read_excel('Regional Indices.xlsx', sheet_name='Bonds')['Country'].unique())
 
@@ -1067,13 +1070,18 @@ if side_options == 'Cross Asset Summary':
 	#indices = indices_func()
 	#st.dataframe(indices[0], height=500)
 	countries_dxy = ['All'] + list(pd.read_excel('World_Indices_List.xlsx')['Country'].unique())
+	major_idxs = list(pd.read_excel('Regional Indices.xlsx', sheet_name='Major')['Major'])
 	#indices_dxy = ['All', 'Major']
 	#indices_dxy = st.selectbox('Indices: ', indices_dxy, index=0)
 	#if indices_dxy=='All':
 	countries_dxy = st.multiselect('Countries: ', countries_dxy, default=['All'])
+	indices = st.selectbox('Indices Type: ', ['Major', 'All (incl. sectoral)'], key='major_all')
 	start_dxy= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='usd_indices')
 	end_dxy = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='usd_indices')
-	usd_indices = usd_indices_rets(countries = countries_dxy, start=start_dxy, end=end_dxy)
+	if indices == 'Major':
+		usd_indices = usd_indices_rets(countries = countries_dxy, start=start_dxy, end=end_dxy, major='Yes')
+	else:
+		usd_indices = usd_indices_rets(countries = countries_dxy, start=start_dxy, end=end_dxy, major='No')
 	st.dataframe(usd_indices, height=500)
 
 
