@@ -228,7 +228,7 @@ def pivot_table(country, ind, maxmcap, minmcap):
 @st.cache(suppress_st_warning=True)
 def load_eqetf_data():
 	eq_etfs = pd.read_excel('GEQETF_N.xlsx')
-	eq_etfs.columns = ["Ticker","Name","Country","Category","Dividend Yield","Currency","Market Cap","1D","1W","1M","3M","6M","YTD","1Y","3Y","Dividend Type","Exchange","20D T/O","52W High","Price"]
+	eq_etfs.columns = ["Ticker","Name","Country","Category","Dividend Yield","Currency","Market Cap","1D","1W","1M","3M","6M","YTD","1Y","3Y","Dividend Type","Exchange","52W High","Price","20D T/O"]
 	eq_etfs["% 52W High"] = (eq_etfs["Price"]/eq_etfs["52W High"])*100
 	eq_etfs["Market Cap"] = eq_etfs["Market Cap"]/(10**9)
 	eq_etfs["20D T/O"] = eq_etfs["20D T/O"]/10**6 
