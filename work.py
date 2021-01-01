@@ -551,19 +551,18 @@ def index_cons(securities, weights, freq='Quarterly'):
 
 
 ##REGIONAL INDICES###################
-
 def regional_indices(country):
     """
     """
+    if date.today().month == 1:
+        mth = 11
+    elif date.today().month == 2:
+        mth = 12
+    else:
+        mth = date.today().month-2
+    
     def idx_data(index, country):
-        if date.today().month == 1:
-            mth = 11
-        elif date.today().month == 2:
-            mth = 12
-        else:
-            mth = date.today().month-2
-       
-        start1 = date(date.today().year-1, mth , date.today().day)
+        start1 = date(date.today().year-1, mth, date.today().day)
         bdates = pd.DataFrame(index=pd.bdate_range(start=start1, end=date.today()))
         bdates.index.name='Date'
         tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
