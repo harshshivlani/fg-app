@@ -367,7 +367,7 @@ def updated_world_indices(category='Major', timeframe='Daily'):
     
     """
     tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
-    fromdate = '01/01/' + str(date.today().year)
+    fromdate = '01/01/' + str(date.today().year-1)
     idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category)
     index_names = list(idxs['Indices'])
     country_names = list(idxs['Country'])
@@ -378,7 +378,7 @@ def updated_world_indices(category='Major', timeframe='Daily'):
         df.columns = [index]
         return df
     
-    df = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year)+'-'+str(date.today().month)+'-'+str(date.today().day), end=date.today()))
+    df = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year-1)+'-'+str(date.today().month)+'-'+str(date.today().day), end=date.today()))
     df.index.name='Date'
     
     #Stitch Local Currency Indices Data
