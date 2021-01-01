@@ -556,12 +556,19 @@ def regional_indices(country):
     """
     """
     def idx_data(index, country):
-        start1 = date(date.today().year-1, date.today().month-2, date.today().day)
+        if date.today().month == 1:
+            mth = 11
+        elif date.today().month == 2:
+            mth = 12
+        else:
+            mth = date.today().month-2
+       
+        start1 = date(date.today().year-1, mth , date.today().day)
         bdates = pd.DataFrame(index=pd.bdate_range(start=start1, end=date.today()))
         bdates.index.name='Date'
         tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
         start_ytd = '01/01/' + str(date.today().year)
-        start_1y = str(date.today().day)+'/'+str(date.today().month-2)+'/'+str(date.today().year-1)
+        start_1y = str(date.today().day)+'/'+str(mth)+'/'+str(date.today().year-1)
         df = investpy.get_index_historical_data(index=index, country=country, from_date=start_1y, to_date=tdy)['Close']
         df = bdates.join(pd.DataFrame(df), on='Date').ffill()
         df.columns = [index]
