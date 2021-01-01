@@ -378,7 +378,7 @@ def updated_world_indices(category='Major', timeframe='Daily'):
         df.columns = [index]
         return df
     
-    df = pd.DataFrame(index=pd.bdate_range(start='2020-01-01', end=date.today()))
+    df = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year)+'-'+str(date.today().month)+'-'+str(date.today().day), end=date.today()))
     df.index.name='Date'
     
     #Stitch Local Currency Indices Data
