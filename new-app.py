@@ -728,6 +728,13 @@ def import_data_yahoo(asset_class):
     asset_class = mention the asset class for ETFs data import (str)
     options available = 'Fixed Income', 'REIT', 'Currencies', 'Commodities', 'World Equities', 'Sectoral'
     """
+     if date.today().month == 1:
+        mth = 11
+    elif date.today().month == 2:
+        mth = 12
+    else:
+        mth = date.today().month-2
+        
     #Import list of ETFs and Ticker Names
     etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class)
     etf_list = etf_list.sort_values(by='Ticker')
@@ -737,7 +744,7 @@ def import_data_yahoo(asset_class):
     df.index.name='Date'
 
     #download and merge all data
-    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history(start=date(date.today().year -1 , date.today().month-1, date.today().day))['adjclose']
+    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history(start=date(date.today().year -1 , mth, date.today().day))['adjclose']
     df1 = pd.DataFrame(df1).unstack().T.reset_index(0).drop('level_0', axis=1)
     df1.index.name = 'Date'
     df1.index = pd.to_datetime(df1.index)
