@@ -78,7 +78,7 @@ def indices_func():
 
 @st.cache(allow_output_mutation=True)
 def regional_indices():
-	return work.regional_indices('All')
+	return work.regional_indices('Major')
 
 
 reg_indices = regional_indices()
