@@ -728,7 +728,7 @@ def import_data_yahoo(asset_class):
     asset_class = mention the asset class for ETFs data import (str)
     options available = 'Fixed Income', 'REIT', 'Currencies', 'Commodities', 'World Equities', 'Sectoral'
     """
-     if date.today().month == 1:
+    if date.today().month == 1:
         mth = 11
     elif date.today().month == 2:
         mth = 12
