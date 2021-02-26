@@ -84,41 +84,6 @@ def regional_indices():
 reg_indices = regional_indices()
 major_indices = pd.read_excel('World_Indices_List.xlsx')['Indices'].to_list()
 
-@st.cache(allow_output_mutation=True)
-def bond_indices():
-	return work.regional_indices('Bonds')
-
-bon_indices = bond_indices()
-teny_indices = pd.read_excel('Regional Indices.xlsx', sheet_name='10Y')['10Y'].to_list()
-
-def usd_indices_rets(countries, start, end, major='No'):
-	if countries=="":
-		return print(st.warnings("Please Select a Country or All"))
-	else:
-		if major == 'Yes':
-			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='Yes'), countries=countries)
-		else:
-			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='No'), countries=countries)
-
-countries_bond_indices = ['All'] +  list(pd.read_excel('Regional Indices.xlsx', sheet_name='Bonds')['Country'].unique())
-
-
-def usd_bond_indices_rets(countries, start, end, opt='All'):
-	if opt=='All':
-		usd_bonds = work.usd_indices_rets(df=bon_indices, start=start, end=end, teny='No')
-		if countries=="":
-			return print(st.warnings("Please Select a Country or All"))
-		else:
-			return work.regional_indices_style(usd_bonds, countries=countries)
-	elif opt=='10Y Bond Indices':
-		usd_bonds = work.usd_indices_rets(df=bon_indices, start=start, end=end, teny='Yes')
-		#usd_bonds = usd_bonds.T[teny].T
-		return work.regional_indices_style(usd_bonds, countries=['All'])
-
-
-
-
-
 
 @st.cache()
 def world_map(timeperiod):
