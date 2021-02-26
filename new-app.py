@@ -85,6 +85,21 @@ reg_indices = regional_indices()
 major_indices = pd.read_excel('World_Indices_List.xlsx')['Indices'].to_list()
 
 
+def usd_indices_rets(countries, start, end, major='No'):
+	if countries=="":
+		return print(st.warnings("Please Select a Country or All"))
+	else:
+		if major == 'Yes':
+			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='Yes'), countries=countries)
+		else:
+			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='No'), countries=countries)
+
+
+
+
+
+
+
 @st.cache()
 def world_map(timeperiod):
     """
@@ -947,19 +962,6 @@ global_yc = show_yc()
 if side_options == 'Global Sovereign Yields':
 	st.subheader('Global Sovereign Yields (2Y, 5Y, 10Y)')
 	st.write(global_yields_sov)
-	st.subheader('Global Government Bond Indices')
-	opt_bond = st.selectbox('Category: ', ['10Y Bond Indices', 'All'], key='bond_opt')
-	if opt_bond =='All':
-		countries_bond = st.multiselect('Countries: ', countries_bond_indices, default=['All'], key='bond_indices1')
-		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices1')
-		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices1')
-		usd_bond_indices = usd_bond_indices_rets(countries=countries_bond, start=start_bond, end=end_bond, opt=opt_bond)
-	else:
-		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices2')
-		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices2')
-		usd_bond_indices = usd_bond_indices_rets(countries='All', start=start_bond, end=end_bond, opt=opt_bond)
-	st.dataframe(usd_bond_indices, height=500)
-
 	st.subheader('Global Sovereign Yield Curves')
 	st.write(global_yc)
 	st.markdown('Data Source: Investing.com')
@@ -1131,22 +1133,6 @@ if side_options == 'Cross Asset Summary':
 	st.markdown('**Top Losers - Equities**')	 												
 	st.write(bot_comp)
 
-
-
-
-	st.header('Fixed Income')
-	st.subheader('Global Government Bond Indices')
-	opt_bond = st.selectbox('Category: ', ['10Y Bond Indices', 'All'], key='opt_bond1')
-	if opt_bond =='All':
-		countries_bond = st.multiselect('Countries: ', countries_bond_indices, default=['All'], key='bond_indices_sum')
-		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
-		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
-		usd_bond_indices = usd_bond_indices_rets(countries=countries_bond, start=start_bond, end=end_bond, opt=opt_bond)
-	else:
-		start_bond= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='bond_indices')
-		end_bond = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='bond_indices')
-		usd_bond_indices = usd_bond_indices_rets(countries='All', start=start_bond, end=end_bond, opt=opt_bond)
-	st.dataframe(usd_bond_indices, height=500)
 
 	st.header('Fixed Income ETFs')	
 	st.write('Median Category Returns:')
