@@ -578,8 +578,21 @@ def regional_indices(country):
     cntry_list = reg_indices['Country']
     eod = date.today() - timedelta(1)
     
-    cur = yf.download(list(reg_indices['Currency'].dropna()), progress=False)['Adj Close']
-    cur.index.name = 'Date'
+    #CURRENCY
+    tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
+    fromdate = '01/12/' + str(date.today().year-2)
+    ccy_list = list(reg_indices['Currency'].sort_values()[3:].unique())
+    def ccy_data(ccy):
+        df = investpy.get_currency_cross_historical_data(currency_cross=ccy, from_date=fromdate, to_date=tdy)['Close']
+        df = pd.DataFrame(df)
+        df.columns = [ccy]
+        return df
+
+    ccyidx = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year-2)+'-12-01', end=date.today()))
+    ccyidx.index.name='Date'
+    for i in range(len(ccy_list)):
+        ccyidx = ccyidx.join(ccy_data(ccy_list[i]), on='Date')
+    cur = ccyidx.copy()
     us_list = list(reg_indices[reg_indices['Country'].values=='United States'][country])
     
     cntry = idx_data(idxs_list[0], cntry_list[0])
@@ -596,7 +609,7 @@ def regional_indices(country):
         for i in range(len(countries)):
             cntry_list = list(reg_indices[reg_indices['Country']==countries[i]][country])
             cur_ = reg_indices[reg_indices['Country']==countries[i]]['Currency'].unique()[0]
-            idxs = idxs.merge(np.multiply(cntry[cntry_list], pd.DataFrame(cur[cur_])[cntry.index[0]:cntry.index[-1]]), on='Date')
+            idxs = idxs.merge(np.multiply(cntry[cntry_list], 1/pd.DataFrame(cur[cur_])[cntry.index[0]:cntry.index[-1]]), on='Date')
         return idxs
 
     data = usd_converter()
