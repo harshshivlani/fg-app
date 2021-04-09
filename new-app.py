@@ -77,22 +77,86 @@ def indices_func():
 	return work.updated_world_indices('All', 'Daily')
 
 @st.cache(allow_output_mutation=True)
-def regional_indices():
-	return work.regional_indices('Major')
+def updated_world_indices(category='All', timeframe='Daily', custom_start='2020-09-30'):
+    """
+    
+    """
+    tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
+    fromdate = '01/12/' + str(date.today().year-2)
+    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category)
+    index_names = list(idxs['Indices'])
+    country_names = list(idxs['Country'])
+
+    def idx_data(index, country):
+        df = investpy.get_index_historical_data(index=index, country=country, from_date=fromdate, to_date=tdy)['Close']
+        df = pd.DataFrame(df)
+        df.columns = [index]
+        return df
+
+    df = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year-2)+'-12-01', end=date.today()))
+    df.index.name='Date'
+
+    #Stitch Local Currency Indices Data
+    for i in range(len(idxs)):
+        df = df.join(idx_data(index_names[i], country_names[i]), on='Date')
+    if timeframe=='Daily':
+        if date.today().weekday() == 5 or date.today().weekday() == 6:
+            df1 = df.ffill().dropna()
+        else:
+            df1 = df.iloc[:-1,:].ffill().dropna()
+    else:
+        df1 = df.ffill().dropna()
+    df1.index.name = 'Date'
 
 
-reg_indices = regional_indices()
-major_indices = pd.read_excel('World_Indices_List.xlsx')['Indices'].to_list()
+    #Local Currency Returns Table
+    def rets_summary(df1):
+        df = pd.concat([df1.iloc[-1,:],
+                             df1.iloc[-1,:]-df1.iloc[-2,:],
+                            (df1.iloc[-1,:]/df1.iloc[-2,:]-1),
+                            (df1.iloc[-1,:]/df1[df1.iloc[-1,:].name - timedelta(7):].iloc[0,:]-1),
+                            (df1.iloc[-1,:]/df1[str(date.today().year-1)+'-12-31':].iloc[0,:]-1)], axis=1)
+        df.columns = ['Price (EOD)','Chg', 'Chg L Cy(%)', 'Chg 1W (%)', 'Chg YTD (%)']
+        return df
+    oned_lcl = rets_summary(df1)
 
 
-def usd_indices_rets(countries, start, end, major='No'):
-	if countries=="":
-		return print(st.warnings("Please Select a Country or All"))
-	else:
-		if major == 'Yes':
-			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='Yes'), countries=countries)
-		else:
-			return work.regional_indices_style(work.usd_indices_rets(df=reg_indices, start=start, end=end, major='No'), countries=countries)
+    cntry = pd.DataFrame(idxs['Country'])
+    cntry.index = idxs['Indices']
+
+    currency = pd.DataFrame(idxs['Currency'])
+    currency.index = idxs['Indices']
+
+    oned_lcl = oned_lcl.sort_values('Chg L Cy(%)', ascending=False)
+    oned_lcl.index.name = 'Indices'
+    oned_lcl = oned_lcl.merge(cntry['Country'], on='Indices')
+    oned_lcl = oned_lcl.merge(currency['Currency'], on='Indices')
+    oned_lcl=oned_lcl[['Country', 'Price (EOD)', 'Chg', 'Chg L Cy(%)', 'Chg 1W (%)', 'Chg YTD (%)', 'Currency']]
+
+    #CURRENCY
+    ccy_list = list(idxs['Currency'].sort_values()[4:].unique())
+    def ccy_data(ccy):
+        df = investpy.get_currency_cross_historical_data(currency_cross=ccy, from_date=fromdate, to_date=tdy)['Close']
+        df = pd.DataFrame(df)
+        df.columns = [ccy]
+        return df
+
+    ccyidx = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year-2)+'-12-01', end=date.today()))
+    ccyidx.index.name='Date'
+    for i in range(len(ccy_list)):
+        ccyidx = ccyidx.join(ccy_data(ccy_list[i]), on='Date')
+
+    ccyidx = pd.DataFrame(index = df1.index).merge(ccyidx, on='Date')
+    ccy_rets = rets_summary(ccyidx)
+    ccy_rets.index.name = 'Currency'
+
+    combined = oned_lcl.join(ccy_rets.iloc[:,2:], on='Currency', rsuffix='C').fillna(0)
+    usd_rets = np.multiply(1+combined.iloc[:,3:6], 1-combined.iloc[:,-3:])-1
+    usd_rets.columns = ['Chg USD(%)', '$1W(%)', '$YTD(%)']
+    final = oned_lcl.iloc[:,:4].merge(usd_rets, on='Indices')
+    final_colored = final.sort_values(by='Chg USD(%)', ascending=False).style.format({'Price (EOD)': "{:.2f}",'Chg': "{:.2f}", 'Chg L Cy(%)': "{:.2%}", 'Chg USD(%)': "{:.2%}", '$1W(%)': "{:.2%}", '$YTD(%)': "{:.2%}"})\
+                             .background_gradient(cmap='RdYlGn', subset=list(final.drop(['Price (EOD)', 'Chg', 'Country'], axis=1).columns))
+    return final, final_colored
 
 
 
@@ -1043,20 +1107,8 @@ if side_options == 'Cross Asset Summary':
 	st.subheader('Global Equity & Sectoral Indices')
 	#indices = indices_func()
 	#st.dataframe(indices[0], height=500)
-	countries_dxy = ['All'] + list(pd.read_excel('World_Indices_List.xlsx')['Country'].unique())
-	major_idxs = list(pd.read_excel('Regional Indices.xlsx', sheet_name='Major')['Major'])
-	#indices_dxy = ['All', 'Major']
-	#indices_dxy = st.selectbox('Indices: ', indices_dxy, index=0)
-	#if indices_dxy=='All':
-	countries_dxy = st.multiselect('Countries: ', countries_dxy, default=['All'])
-	indices = st.selectbox('Indices Type: ', ['Major', 'All (incl. sectoral)'], key='major_all')
-	start_dxy= st.date_input("Custom Return Start Date: ", date(2020,3,23), key='usd_indices')
-	end_dxy = st.date_input("Custom Return End Date: ", date.today() - timedelta(1), key='usd_indices')
-	if indices == 'Major':
-		usd_indices = usd_indices_rets(countries = countries_dxy, start=start_dxy, end=end_dxy, major='Yes')
-	else:
-		usd_indices = usd_indices_rets(countries = countries_dxy, start=start_dxy, end=end_dxy, major='No')
-	st.dataframe(usd_indices, height=500)
+	usd_indices_updated = updated_world_indices('All', 'Daily')
+	st.dataframe(usd_indices_updated[1], height=500)
 
 
 
