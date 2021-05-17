@@ -13,6 +13,7 @@ ipywidgets
 quandl
 plotly
 plotly-express
+xlrd
 voila
 nsepy
 investpy==1.0.6
