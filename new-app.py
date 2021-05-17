@@ -44,7 +44,7 @@ side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'E
 #Import Master Data
 @st.cache(allow_output_mutation=True)
 def load_eq_data():
-	data = pd.read_excel('GSTOCKS_N.xlsx')
+	data = pd.read_excel('GSTOCKS_N.xlsx', engine='openpyxl')
 	data.columns = ["Ticker","Name","Market Cap","Country","Industry","Sub-Industry","1D","1M","3M","YTD","ROE","ROCE","EBITDA (%)",
 	"Profit (%)","P/E","Rev YoY","EBITDA YoY","Profit YoY","Rev T12M","FCF T12M", "1W"]
 	data['Market Cap'] = data['Market Cap']/10**9
@@ -83,7 +83,7 @@ def updated_world_indices(category='All', timeframe='Daily', custom_start='2020-
     """
     tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
     fromdate = '01/12/' + str(date.today().year-2)
-    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category)
+    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category, engine='openpyxl')
     index_names = list(idxs['Indices'])
     country_names = list(idxs['Country'])
 
@@ -168,7 +168,7 @@ def updated_world_indices(category='All', timeframe='Daily', custom_start='2020-
 def world_map(timeperiod):
     """
     """
-    iso = pd.read_excel('World_Indices_List.xlsx', sheet_name='iso')
+    iso = pd.read_excel('World_Indices_List.xlsx', sheet_name='iso', engine='openpyxl')
     iso.set_index('Country', inplace=True)
     rawdata = indices_func()[1]
     rawdata['Index'] = rawdata.index
@@ -271,7 +271,7 @@ def pivot_table(country, ind, maxmcap, minmcap):
 #########################################--------------------EQUITY-ETFS--------------------##########################
 @st.cache(suppress_st_warning=True)
 def load_eqetf_data():
-	eq_etfs = pd.read_excel('GEQETF_N.xlsx')
+	eq_etfs = pd.read_excel('GEQETF_N.xlsx', engine='openpyxl')
 	eq_etfs.columns = ["Ticker","Name","Country","Category","Dividend Yield","Currency","Market Cap","1D","1W","1M","3M","6M","YTD","1Y","3Y","Dividend Type","Exchange","52W High","Price","20D T/O"]
 	eq_etfs["% 52W High"] = (eq_etfs["Price"]/eq_etfs["52W High"])*100
 	eq_etfs["Market Cap"] = eq_etfs["Market Cap"]/(10**9)
@@ -457,7 +457,7 @@ if side_options == 'Equities':
 # ----------------------------- REITS SIDEPANEL ---------------------------------------------------------------------
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_reits():
-	reits = pd.read_excel('GREITS_N.xlsx')
+	reits = pd.read_excel('GREITS_N.xlsx', engine='openpyxl')
 	reits.columns = ["Ticker","Name","Market Cap","Country","Sub-Industry","20D T/O","Dividend Yield","1D","1W","1M","3M","6M","YTD","1Y","3Y","Dividend Type","Div Payout Date","Currency","52W High","Price"]
 	reits["% 52W High"] = (reits["Price"]/reits["52W High"])*100
 	reits["Market Cap"] = reits["Market Cap"]/(10**9)
@@ -605,7 +605,7 @@ def import_data(asset_class):
     options available = 'Fixed Income', 'REIT', 'Currencies', 'Commodities', 'World Equities', 'Sector Equities'
     """
     #Import list of ETFs and Ticker Names
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name='Commodities')
+    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name='Commodities', engine='openpyxl')
 
     #Build an empty df to store historical 1 year data
     df = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
@@ -688,7 +688,7 @@ def returns_hmap(data, cat, asset_class, start=date(2020,3,23), end=date.today()
     df_perf.index.name = asset_class
 
     #Add Ticker Names and sort the dataframe
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class)
+    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class, engine='openpyxl')
     if asset_class=='Indian Equities':
         df2 = df_perf.copy()
         df2  = df2.sort_values(by=sortby, ascending=False)
@@ -780,7 +780,7 @@ def import_data_yahoo(asset_class):
         mth = date.today().month-2
         
     #Import list of ETFs and Ticker Names
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class)
+    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class, engine='openpyxl')
     etf_list = etf_list.sort_values(by='Ticker')
 
     #Build an empty df to store historical 1 year data
@@ -821,7 +821,7 @@ if side_options == 'FX':
 #################-------------------------Fixed Income-------------------------------#######################
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_fi_etfs():
-	fi_etfs = pd.read_excel('GFI_N.xlsx')
+	fi_etfs = pd.read_excel('GFI_N.xlsx', engine='openpyxl')
 	fi_etfs.columns = ["Ticker","Name","20D T/O","Market Cap","Category","Dividend Yield","Currency","1D","1W","1M","3M","6M","YTD","1Y","Dividend Type","Exchange","Country","52W High","Price"]
 	fi_etfs["% 52W High"] = (fi_etfs["Price"]/fi_etfs["52W High"])*100
 	fi_etfs["Market Cap"] = fi_etfs["Market Cap"]/(10**9)
