@@ -368,7 +368,7 @@ def updated_world_indices(category='Major', timeframe='Daily'):
     """
     tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
     fromdate = '01/01/' + str(date.today().year-1)
-    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category)
+    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category, engine='openpyxl')
     index_names = list(idxs['Indices'])
     country_names = list(idxs['Country'])
     
@@ -573,7 +573,7 @@ def regional_indices(country):
         df.columns = [index]
         return df
 
-    reg_indices = pd.read_excel('Regional Indices.xlsx', sheet_name=country)
+    reg_indices = pd.read_excel('Regional Indices.xlsx', sheet_name=country, engine='openpyxl')
     idxs_list = list(reg_indices[country])
     cntry_list = reg_indices['Country']
     eod = date.today() - timedelta(1)
@@ -627,7 +627,7 @@ def drawdowns(data):
     return drawdowns.min(axis=0)
 
 def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1), teny='No', major='No'):
-    tens=pd.read_excel('Regional Indices.xlsx', sheet_name='10Y')['10Y'].to_list()
+    tens=pd.read_excel('Regional Indices.xlsx', sheet_name='10Y', engine='openpyxl')['10Y'].to_list()
     if teny=='Yes':
         data = df[0].ffill()[tens]
         cntry = df[1][tens]
@@ -652,7 +652,7 @@ def usd_indices_rets(df, start = '2020-03-23', end = date.today() - timedelta(1)
     cntry_list.index = df.index
     cntry_list.index.name = 'Indices'
     df = cntry_list.merge(df, on='Indices')
-    major_idxs = list(pd.read_excel('Regional Indices.xlsx', sheet_name='Major')['Major'])
+    major_idxs = list(pd.read_excel('Regional Indices.xlsx', sheet_name='Major', engine='openpyxl')['Major'])
     if major =='Yes':
         return df[df.index.isin(major_idxs)]
     else:
