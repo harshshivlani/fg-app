@@ -11,6 +11,7 @@ from yahooquery import Ticker
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import investpy
+import openpyxl
 
 
 def world_indices(end_date, weekly='No'):
