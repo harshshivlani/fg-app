@@ -273,7 +273,7 @@ def import_data(asset_class, sortby='1-Day'):
     oneyr = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year-1)
     threeyr = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year-3)
     #Import list of ETFs and Ticker Names
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class)
+    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class, engine='openpyxl')
 
     #Define function to fetch historical data from Investing.com
     def hist_data(name, country):
@@ -389,7 +389,7 @@ def updated_world_indices(category='Major'):
     
     """
     tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
-    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category)
+    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category, engine='openpyxl')
     index_names = list(idxs['Indices'])
     country_names = list(idxs['Country'])
     
