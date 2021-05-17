@@ -16,7 +16,7 @@ plotly
 plotly-express
 voila
 nsepy
-investpy
+investpy==1.0.6
 streamlit
 bs4
 beautifulsoup4
