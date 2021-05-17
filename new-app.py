@@ -821,7 +821,7 @@ if side_options == 'FX':
 #################-------------------------Fixed Income-------------------------------#######################
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_fi_etfs():
-	fi_etfs = pd.read_excel('GFI_N.xlsx', engine='openpyxl')
+	fi_etfs = pd.read_excel('GFI_N.xlsx', engine='openpyxl').iloc[:,:-1]
 	fi_etfs.columns = ["Ticker","Name","20D T/O","Market Cap","Category","Dividend Yield","Currency","1D","1W","1M","3M","6M","YTD","1Y","Dividend Type","Exchange","Country","52W High","Price"]
 	fi_etfs["% 52W High"] = (fi_etfs["Price"]/fi_etfs["52W High"])*100
 	fi_etfs["Market Cap"] = fi_etfs["Market Cap"]/(10**9)
