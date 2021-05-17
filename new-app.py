@@ -170,11 +170,12 @@ def world_map(timeperiod):
     """
     iso = pd.read_excel('World_Indices_List.xlsx', sheet_name='iso', engine='openpyxl')
     iso.set_index('Country', inplace=True)
-    rawdata = indices_func()[1]
+    rawdata = updated_world_indices('All', 'Daily')[0]
     rawdata['Index'] = rawdata.index
     rawdata = rawdata.drop(['China A50', 'SmallCap 2000', 'BSE Sensex', 'Euro Stoxx 50', 'Nasdaq 100', 'KOSDAQ', 'RTSI', 'DJ Shanghai', 'SZSE Component'], axis=0)
     data2 = rawdata.merge(iso['iso_alpha'], on='Country')
-    data2[['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)']] = data2[['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)']].round(4)*100
+    data2[['Chg L Cy(%)','Chg USD(%)', '$1W(%)','$YTD(%)']] = data2[['Chg L Cy(%)','Chg USD(%)', '$1W(%)','$YTD(%)']].round(4)*100
+    #data2[['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)']] = data2[['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)']].round(4)*100
     df = data2
     for col in df.columns:
         df[col] = df[col].astype(str)
@@ -1101,7 +1102,7 @@ if side_options == 'Cross Asset Summary':
 	st.header('Global Equities')
 	#components.iframe("http://www.teletrader.com/yadea/stocks/details/tts-161915467", height=500)
 	st.subheader('World Equity Heatmap')
-	timeframe = st.selectbox('Timeframe: ', ['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)'], index=2)
+	timeframe = st.selectbox('Timeframe: ', ['Chg L Cy(%)','Chg USD(%)', '$1W(%)','$YTD(%)'], index=1)
 	print(st.plotly_chart(world_map(timeperiod=timeframe)))
 
 	st.subheader('Global Equity & Sectoral Indices')
