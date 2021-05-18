@@ -44,7 +44,7 @@ side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'E
 #Import Master Data
 @st.cache(allow_output_mutation=True)
 def load_eq_data():
-	data = pd.read_excel('GSTOCKS_N.xlsx', engine='openpyxl').iloc[:,:-1]
+	data = pd.read_excel('GSTOCKS_N.xlsx', engine='openpyxl')
 	data.columns = ["Ticker","Name","Market Cap","Country","Industry","Sub-Industry","1D","1M","3M","YTD","ROE","ROCE","EBITDA (%)",
 	"Profit (%)","P/E","Rev YoY","EBITDA YoY","Profit YoY","Rev T12M","FCF T12M", "1W"]
 	data['Market Cap'] = data['Market Cap']/10**9
@@ -272,7 +272,7 @@ def pivot_table(country, ind, maxmcap, minmcap):
 #########################################--------------------EQUITY-ETFS--------------------##########################
 @st.cache(suppress_st_warning=True)
 def load_eqetf_data():
-	eq_etfs = pd.read_excel('GEQETF_N.xlsx', engine='openpyxl').iloc[:,:-1]
+	eq_etfs = pd.read_excel('GEQETF_N.xlsx', engine='openpyxl')
 	eq_etfs.columns = ["Ticker","Name","Country","Category","Dividend Yield","Currency","Market Cap","1D","1W","1M","3M","6M","YTD","1Y","3Y","Dividend Type","Exchange","52W High","Price","20D T/O"]
 	eq_etfs["% 52W High"] = (eq_etfs["Price"]/eq_etfs["52W High"])*100
 	eq_etfs["Market Cap"] = eq_etfs["Market Cap"]/(10**9)
@@ -458,7 +458,7 @@ if side_options == 'Equities':
 # ----------------------------- REITS SIDEPANEL ---------------------------------------------------------------------
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_reits():
-	reits = pd.read_excel('GREITS_N.xlsx', engine='openpyxl').iloc[:,:-1]
+	reits = pd.read_excel('GREITS_N.xlsx', engine='openpyxl')
 	reits.columns = ["Ticker","Name","Market Cap","Country","Sub-Industry","20D T/O","Dividend Yield","1D","1W","1M","3M","6M","YTD","1Y","3Y","Dividend Type","Div Payout Date","Currency","52W High","Price"]
 	reits["% 52W High"] = (reits["Price"]/reits["52W High"])*100
 	reits["Market Cap"] = reits["Market Cap"]/(10**9)
@@ -822,7 +822,7 @@ if side_options == 'FX':
 #################-------------------------Fixed Income-------------------------------#######################
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_fi_etfs():
-	fi_etfs = pd.read_excel('GFI_N.xlsx', engine='openpyxl').iloc[:,:-1]
+	fi_etfs = pd.read_excel('GFI_N.xlsx', engine='openpyxl')
 	fi_etfs.columns = ["Ticker","Name","20D T/O","Market Cap","Category","Dividend Yield","Currency","1D","1W","1M","3M","6M","YTD","1Y","Dividend Type","Exchange","Country","52W High","Price"]
 	fi_etfs["% 52W High"] = (fi_etfs["Price"]/fi_etfs["52W High"])*100
 	fi_etfs["Market Cap"] = fi_etfs["Market Cap"]/(10**9)
