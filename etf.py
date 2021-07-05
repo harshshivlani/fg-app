@@ -643,25 +643,27 @@ def country_macros(country, data_type):
     pd.set_option('display.float_format', lambda x: '%.2f' % x)
     
     if data_type == 'Overview':
-        return df_list1[1].iloc[:,:-1].set_index('Overview')
+        return df_list1[1].iloc[:,:-1].set_index(df_list1[1].columns[0])
     elif data_type == 'GDP':
-        return df_list1[2].iloc[:,:-1].set_index('GDP')
+        return df_list1[2].iloc[:,:-1].set_index(df_list1[2].columns[0])
     elif data_type == 'Labour':
-        return df_list1[3].iloc[:,:-1].set_index('Labour')
+        return df_list1[3].iloc[:,:-1].set_index(df_list1[3].columns[0])
     elif data_type == 'Inflation':
-        return df_list1[4].iloc[:,:-1].set_index('Prices')
+        return df_list1[5].iloc[:,:-1].set_index(df_list1[5].columns[0])
     elif data_type == 'Money':
-        return df_list1[5].iloc[:,:-1].set_index('Money')
+        return df_list1[6].iloc[:,:-1].set_index(df_list1[6].columns[0])
     elif data_type == 'Trade':
-        return df_list1[6].iloc[:,:-1].set_index('Trade')
+        return df_list1[7].iloc[:,:-1].set_index(df_list1[7].columns[0])
     elif data_type == 'Government':
-        return df_list1[7].iloc[:,:-1].set_index('Government')
+        return df_list1[8].iloc[:,:-1].set_index(df_list1[8].columns[0])
     elif data_type == 'Taxes':
-        return df_list1[8].iloc[:,:-1].set_index('Taxes')
+        return df_list1[9].iloc[:,:-1].set_index(df_list1[9].columns[0])
     elif data_type == 'Business':
-        return df_list1[9].iloc[:,:-1].set_index('Business')
+        return df_list1[10].iloc[:,:-1].set_index(df_list1[10].columns[0])
     elif data_type == 'Consumer':
-        return df_list1[10].iloc[:,:-1].set_index('Consumer')
+        return df_list1[11].iloc[:,:-1].set_index(df_list1[11].columns[0])
+    elif data_type == 'Housing':
+        return df_list1[12].iloc[:,:-1].set_index(df_list1[12].columns[0])
     else:
         return 
     
