@@ -756,6 +756,7 @@ def display_items(data, asset_class, cat):
 	start= st.date_input("Custom Start Date: ", date(2020,3,23))
 	end = st.date_input("Custom End Date: ", date.today())
 	st.dataframe(returns_hmap(data=data[cat], asset_class=asset_class, cat=cat, start=start, end=end), height=1500)
+	st.markdown(get_table_download_link(st.dataframe(returns_hmap(data=data[cat], asset_class=asset_class, cat=cat, start=start, end=end), height=1500)), unsafe_allow_html=True)
 	st.subheader("Price Return Performance")
 	start_date = st.selectbox('Select Period', list(disp_opts.keys()), index=3, format_func = format_func, key='chart')
 	print(st.plotly_chart(plot_chart(data=data[cat], start_date=start_date, cat=cat)))
@@ -809,8 +810,7 @@ if side_options == 'Commodities':
 	if st.checkbox('Show Live Chart'):
 		components.iframe("https://harshshivlani.github.io/x-asset/equity-chart", width=1000, height=550)
 	st.write('**Note:** All returns are in USD')
-	print(display_items(comd, 'Commodities', cat=list(comd.columns)))
-	st.markdown(get_table_download_link(comd), unsafe_allow_html=True)
+	print(display_items(comd, 'Commodities', cat=list(comd.columns)))	
 	
 
 if side_options == 'FX':
