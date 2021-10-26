@@ -810,6 +810,8 @@ if side_options == 'Commodities':
 		components.iframe("https://harshshivlani.github.io/x-asset/equity-chart", width=1000, height=550)
 	st.write('**Note:** All returns are in USD')
 	print(display_items(comd, 'Commodities', cat=list(comd.columns)))
+	st.markdown(get_table_download_link(comd), unsafe_allow_html=True)
+	
 
 if side_options == 'FX':
 	if st.checkbox('Show Live Data', value=True):
@@ -1110,6 +1112,7 @@ if side_options == 'Cross Asset Summary':
 	#st.dataframe(indices[0], height=500)
 	usd_indices_updated = updated_world_indices('All', 'Daily')
 	st.dataframe(usd_indices_updated[1], height=500)
+	st.markdown(get_table_download_link(usd_indices_updated[1]), unsafe_allow_html=True)
 
 
 
