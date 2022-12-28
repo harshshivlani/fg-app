@@ -44,7 +44,7 @@ side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'E
 #Import Master Data
 @st.cache(allow_output_mutation=True)
 def load_eq_data():
-	data = pd.read_excel('GSTOCKS_N.xlsx', engine='openpyxl')
+	data = pd.read_excel("GSTOCKS_N.xlsx", engine='openpyxl', sep=",")
 	data.columns = ["Ticker","Name","Market Cap","Country","Industry","Sub-Industry","1D","1M","3M","YTD","ROE","ROCE","EBITDA (%)",
 	"Profit (%)","P/E","Rev YoY","EBITDA YoY","Profit YoY","Rev T12M","FCF T12M", "1W"]
 	data['Market Cap'] = data['Market Cap']/10**9
@@ -351,6 +351,30 @@ def get_table_download_link(df):
 
 
 if side_options == 'Equities':
+	#INDEX DATA
+	def color_positive_green(val):
+	    """
+	    Takes a scalar and returns a string with
+	    the css property `'color: green'` for positive
+	    strings, black otherwise.
+	    """
+	    if val > 0:
+	        color = 'green'
+	    else:
+	        color = 'red'
+	    return 'color: %s' % color
+
+	st.title('Global Equity Indices')
+	eqidx = pd.read_excel("EQ-FX.xlsx", engine='openpyxl', sheet_name='EQ', header=0, index_col=0)
+	eqidx = eqidx.sort_values(by='Chg USD(%)', ascending=False).style.format('{0:,.2%}', subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)',
+																					  '1M (%)', '$YTD(%)'])\
+					.format('{0:,.2f}', subset=['Price (EOD)'])\
+					.applymap(color_positive_green, subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)','1M (%)', '$YTD(%)'])\
+					#.background_gradient(cmap='RdYlGn', subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)','1M (%)', '$YTD(%)'])
+	print(st.dataframe(eqidx, height=500))
+	st.markdown(get_table_download_link(eqidx), unsafe_allow_html=True)
+
+
 	#PIVOT - EQUITY
 	st.title('Global Equities - Pivot Table')
 	st.subheader('Compare Market Cap Weighted Returns across Countries & GICS Industries')
