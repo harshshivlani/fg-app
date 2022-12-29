@@ -357,7 +357,7 @@ if side_options == 'Equities':
 	st.title('Global Equities - Regional Performance Table')
 	st.subheader('Compare Market Cap Weighted Industry Returns across Major Regions')
 	period = st.selectbox('Period: ', ['1D', '1W', '1M', '3M', 'YTD'], key='rot')
-	level=st.selectbox('Level: ', ['Industry', 'Sub-Industry'], key='rot')
+	level=st.selectbox('Level: ', ['Industry', 'Sub-Industry'], key='rot1')
 	reg_equity = regional_sect_perf(period, level)
 	print(st.dataframe(reg_equity, height=500))
 	st.markdown(get_table_download_link(reg_equity), unsafe_allow_html=True)
