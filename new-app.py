@@ -555,7 +555,7 @@ if side_options == 'REITs':
 	else:
 		all_subind = ["All"] + list(data[data['Country']==country]['Sub-Industry'].unique())
 
-	ind = st.selectbox('GICS Industry Name: ', all_subind, key='pivot')
+	ind = st.selectbox('GICS Industry Name: ', all_subind, key='pivot1o')
 	maxmcap = st.number_input('Maximum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max().astype(float), value=data['Market Cap'].max().astype(float), step=0.1, key='reitspivot-max')
 	minmcap = st.number_input('Minimum MCap (Bn USD): ', min_value=0.5, max_value=data['Market Cap'].max().astype(float), value=1.0, step=0.1, key='reitspivot-min')
 	print(st.dataframe(reit_pivot_table(country=country, ind=ind, maxmcap=maxmcap, minmcap=minmcap), height=700))
