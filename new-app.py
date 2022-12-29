@@ -38,13 +38,14 @@ st.write("""
 """)
 components.iframe("https://harshshivlani.github.io/x-asset/liveticker")
 st.sidebar.header('Cross Asset Monitor: Contents')
-side_options = st.sidebar.radio('Please Select One:', ('Cross Asset Summary', 'Equities', 'Fixed Income ETFs', 'Global Sovereign Yields', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar', 'ETF Details'))
+side_options = st.sidebar.radio('Please Select One:', ('Equities', 'Fixed Income', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar'))
 
 
 #Import Master Data
 @st.cache(allow_output_mutation=True)
 def load_eq_data():
-	data = pd.read_excel("GSTOCKS_N.xlsx", engine='openpyxl', sep=",")
+	data = pd.read_excel("GSTOCKS_N.xlsx", engine='openpyxl')
+	#sep=","
 	data.columns = ["Ticker","Name","Market Cap","Country","Industry","Sub-Industry","1D","1M","3M","YTD","ROE","ROCE","EBITDA (%)",
 	"Profit (%)","P/E","Rev YoY","EBITDA YoY","Profit YoY","Rev T12M","FCF T12M", "1W"]
 	data['Market Cap'] = data['Market Cap']/10**9
@@ -70,125 +71,6 @@ percs = ['1D', '1W', '1M', '3M', 'YTD', 'ROE', 'ROCE', 'EBITDA (%)',
        'Profit (%)', 'Rev YoY', 'EBITDA YoY', 'Profit YoY', 'FCF Yield']
 bns = ['Market Cap', 'MCap-OG', 'Rev T12M','FCF T12M']
 all_countries = ["All"] + list(data['Country'].unique())
-
-
-@st.cache(allow_output_mutation=True)
-def indices_func():
-	return work.updated_world_indices('All', 'Daily')
-
-@st.cache(allow_output_mutation=True)
-def updated_world_indices(category='All', timeframe='Daily', custom_start='2020-09-30'):
-    """
-    
-    """
-    tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
-    fromdate = '01/12/' + str(date.today().year-2)
-    idxs = pd.read_excel('World_Indices_List.xlsx', index_col=0, header=0, sheet_name=category, engine='openpyxl')
-    index_names = list(idxs['Indices'])
-    country_names = list(idxs['Country'])
-
-    def idx_data(index, country):
-        df = investpy.get_index_historical_data(index=index, country=country, from_date=fromdate, to_date=tdy)['Close']
-        df = pd.DataFrame(df)
-        df.columns = [index]
-        return df
-
-    df = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year-2)+'-12-01', end=date.today()))
-    df.index.name='Date'
-
-    #Stitch Local Currency Indices Data
-    for i in range(len(idxs)):
-        df = df.join(idx_data(index_names[i], country_names[i]), on='Date')
-    if timeframe=='Daily':
-        if date.today().weekday() == 5 or date.today().weekday() == 6:
-            df1 = df.ffill().dropna()
-        else:
-            df1 = df.iloc[:-1,:].ffill().dropna()
-    else:
-        df1 = df.ffill().dropna()
-    df1.index.name = 'Date'
-
-
-    #Local Currency Returns Table
-    def rets_summary(df1):
-        df = pd.concat([df1.iloc[-1,:],
-                             df1.iloc[-1,:]-df1.iloc[-2,:],
-                            (df1.iloc[-1,:]/df1.iloc[-2,:]-1),
-                            (df1.iloc[-1,:]/df1[df1.iloc[-1,:].name - timedelta(7):].iloc[0,:]-1),
-                            (df1.iloc[-1,:]/df1[str(date.today().year-1)+'-12-31':].iloc[0,:]-1)], axis=1)
-        df.columns = ['Price (EOD)','Chg', 'Chg L Cy(%)', 'Chg 1W (%)', 'Chg YTD (%)']
-        return df
-    oned_lcl = rets_summary(df1)
-
-
-    cntry = pd.DataFrame(idxs['Country'])
-    cntry.index = idxs['Indices']
-
-    currency = pd.DataFrame(idxs['Currency'])
-    currency.index = idxs['Indices']
-
-    oned_lcl = oned_lcl.sort_values('Chg L Cy(%)', ascending=False)
-    oned_lcl.index.name = 'Indices'
-    oned_lcl = oned_lcl.merge(cntry['Country'], on='Indices')
-    oned_lcl = oned_lcl.merge(currency['Currency'], on='Indices')
-    oned_lcl=oned_lcl[['Country', 'Price (EOD)', 'Chg', 'Chg L Cy(%)', 'Chg 1W (%)', 'Chg YTD (%)', 'Currency']]
-
-    #CURRENCY
-    ccy_list = list(idxs['Currency'].sort_values()[4:].unique())
-    def ccy_data(ccy):
-        df = investpy.get_currency_cross_historical_data(currency_cross=ccy, from_date=fromdate, to_date=tdy)['Close']
-        df = pd.DataFrame(df)
-        df.columns = [ccy]
-        return df
-
-    ccyidx = pd.DataFrame(index=pd.bdate_range(start=str(date.today().year-2)+'-12-01', end=date.today()))
-    ccyidx.index.name='Date'
-    for i in range(len(ccy_list)):
-        ccyidx = ccyidx.join(ccy_data(ccy_list[i]), on='Date')
-
-    ccyidx = pd.DataFrame(index = df1.index).merge(ccyidx, on='Date')
-    ccy_rets = rets_summary(ccyidx)
-    ccy_rets.index.name = 'Currency'
-
-    combined = oned_lcl.join(ccy_rets.iloc[:,2:], on='Currency', rsuffix='C').fillna(0)
-    usd_rets = np.multiply(1+combined.iloc[:,3:6], 1-combined.iloc[:,-3:])-1
-    usd_rets.columns = ['Chg USD(%)', '$1W(%)', '$YTD(%)']
-    final = oned_lcl.iloc[:,:4].merge(usd_rets, on='Indices')
-    final_colored = final.sort_values(by='Chg USD(%)', ascending=False).style.format({'Price (EOD)': "{:.2f}",'Chg': "{:.2f}", 'Chg L Cy(%)': "{:.2%}", 'Chg USD(%)': "{:.2%}", '$1W(%)': "{:.2%}", '$YTD(%)': "{:.2%}"})\
-                             .background_gradient(cmap='RdYlGn', subset=list(final.drop(['Price (EOD)', 'Chg', 'Country'], axis=1).columns))
-    return final, final_colored
-
-
-
-
-
-
-
-@st.cache()
-def world_map(timeperiod):
-    """
-    """
-    iso = pd.read_excel('World_Indices_List.xlsx', sheet_name='iso', engine='openpyxl')
-    iso.set_index('Country', inplace=True)
-    rawdata = updated_world_indices('All', 'Daily')[0]
-    rawdata['Index'] = rawdata.index
-    rawdata = rawdata.drop(['China A50', 'SmallCap 2000', 'BSE Sensex', 'Euro Stoxx 50', 'Nasdaq 100', 'KOSDAQ', 'RTSI', 'DJ Shanghai', 'SZSE Component'], axis=0)
-    data2 = rawdata.merge(iso['iso_alpha'], on='Country')
-    data2[['Chg L Cy(%)','Chg USD(%)', '$1W(%)','$YTD(%)']] = data2[['Chg L Cy(%)','Chg USD(%)', '$1W(%)','$YTD(%)']].round(4)*100
-    #data2[['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)']] = data2[['Chg (%)', 'Chg YTD (%)', '$ Chg (%)','$ Chg YTD (%)']].round(4)*100
-    df = data2
-    for col in df.columns:
-        df[col] = df[col].astype(str)
-
-    df['text'] = 'Return: '+df[timeperiod]+'%' + '<br>' \
-                  'Country: '+ df['Country'] + '<br>' \
-                  'Index: '+ df['Index'] + '<br>' \
-    
-    fig1 = go.Figure(data=go.Choropleth(locations=df['iso_alpha'], z=df[timeperiod].astype(float).round(2), colorscale='RdYlGn', autocolorscale=False,
-        text=df['text'], colorbar_ticksuffix = '%', colorbar_title = "Return"))
-
-    return fig1.update_layout(width=950, height=500, margin=dict(l=0,r=0,b=0,t=0,pad=1),
-                        xaxis=dict(scaleanchor='x', constrain='domain'), coloraxis_colorbar_x=1)
 
 
 
@@ -268,6 +150,43 @@ def pivot_table(country, ind, maxmcap, minmcap):
 	return df
 
 
+def regional_sect_perf(period='1M', level = 'Industry'):
+    """
+    """
+    def mcap_weighted11(df, rets_cols, groupby, reit=False):
+    	df[rets_cols] = df[rets_cols]/100
+    	old_mcap = (1/(1+df[rets_cols])).multiply(df['Market Cap'], axis='rows')
+    	old = old_mcap.join(df['Market Cap'])
+    	old.iloc[:,:-1] = -old.iloc[:,:-1].subtract(old.iloc[:,-1], axis='rows')
+    	change_sum = old.join(df[groupby]).groupby(groupby).sum().iloc[:,:-1]
+    	old_sum = old_mcap.join(df[groupby]).groupby(groupby).sum()
+    	mcap_weight = pd.DataFrame(df.groupby(groupby).sum()['Market Cap']).merge(change_sum.divide(old_sum, axis='rows'), on=groupby)
+    	df = mcap_weight
+    	df[rets_cols] = df[rets_cols]*100
+    	if reit == True:
+    		subs = ["1D","1W","1M","3M","6M","YTD"]
+    	else:
+    		subs = ["1D","1W","1M","3M","YTD"]
+    	df = df.sort_values(by='1D', ascending=False)
+    	return df
+
+    region_names = ['All', 'DM', 'US', 'Europe', 'EM', 'China', 'EM ex-China', 'EM-Asia','EMEA','LatAm','Middle East']
+    region_dfs = [full, dm, us, europe, ems, china, emexchina, emasia, emea, latam, me]
+    matrix = pd.DataFrame(index=data[level].unique())
+    matrix.index.name = level
+    rets_cols = ['1D', '1W', '1M', '3M', 'YTD']
+    for i in range(11):
+        new_df = data[data['Country'].isin(region_dfs[i])]
+        new_df = new_df[(new_df["Market Cap"]<=10000) & (new_df["Market Cap"]>0.5)]    
+        reg  = pd.DataFrame(mcap_weighted11(new_df, rets_cols, level)[period])
+        reg.columns = [region_names[i]]
+        matrix = matrix.join(reg, on=level)
+
+    matrix = matrix.sort_values(by='All', ascending = False).drop(np.nan, axis=0).fillna(0).style.format('{0:,.2f}%').applymap(color_positive_green)
+    #.drop(['Mortgage Real Estate Investment Trusts (REITs)', 'Equity Real Estate Investment Trusts (REITs)'], axis=0)
+    
+    return matrix
+
 
 #########################################--------------------EQUITY-ETFS--------------------##########################
 @st.cache(suppress_st_warning=True)
@@ -281,18 +200,59 @@ def load_eqetf_data():
 	eq_etfs = eq_etfs[["Ticker","Name","Country","Category","Market Cap","1D","1W","1M","3M","6M","YTD","1Y","3Y","% 52W High","Dividend Yield","Currency","Exchange","20D T/O"]]
 	eq_etfs['Country'] = eq_etfs['Country'].replace('Ireland', 'London') 
 	npercs = gradient + ['1Y', '3Y', '1W']
-	eq_etfs[npercs] = eq_etfs[npercs].fillna(0.00)
+	#eq_etfs[npercs] = eq_etfs[npercs].fillna(0)
 	return eq_etfs
 
 retsetf = ["1D","1W","1M","3M","6M","YTD","1Y","3Y","% 52W High"]
 eq_etfs = load_eqetf_data()
-ems = ['Argentina', 'Brazil', 'Chile', 'Peru', 'Colombia', 'Mexico', 'Czech Republic','Egypt','Greece','Hungary',
-									'Poland','Qatar','Russia','Saudi Arabia', 'South Africa', 'Turkey','United Arab Emirates', 'China', 'India',
-									'Indonesia', 'South Korea','Malaysia','Pakistan','Philippines','Taiwan','Thailand']
-asia=['Bangladesh', 'Sri Lanka','Vietnam','China', 'India','Indonesia', 'South Korea','Malaysia','Pakistan','Philippines','Taiwan','Thailand']
-europe=['Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Ireland', 'Italy','Netherlands', 'Norway',
-									'Portugal','Spain','Sweden','Switzerland','United Kingdom','Greece', 'Poland','Hungary','Czech Republic']
 
+#DEFINE REGION LISTS
+full = list(data['Country'].unique())
+
+allclean = data.groupby('Country').sum()
+allclean = allclean[allclean['Market Cap']>=50].index.to_list()
+
+ems = ['Argentina', 'Brazil', 'Chile', 'China', 'Colombia', 'Czech Republic', 'Egypt', 'Greece', 'Hungary', 'India', 'Indonesia',
+  'South Korea', 'Kuwait', 'Malaysia', 'Mexico', 'Peru', 'Philippines', 'Poland', 'Qatar', 'South Africa',
+  'Taiwan', 'Thailand', 'Turkey', 'United Arab Emirates', 'UAE', 'Vietnam', 'Saudi Arabia', 'Pakistan']
+
+dm = list(set(full).difference(ems))
+
+dmexus = list(set(full).difference(ems).difference(['United States']))
+
+asia_pacific = ['China', 'India', 'Indonesia', 'South Korea', 'Malaysia', 'Pakistan', 'Philippines',
+           'Taiwan', 'Thailand', 'Hong Kong', 'Japan', 'New Zealand', 'Australia', 'Singapore']
+
+asia = ['China', 'India', 'Indonesia', 'South Korea', 'Malaysia', 'Pakistan', 'Philippines',
+           'Taiwan', 'Thailand', 'Hong Kong', 'Japan', 'Singapore']
+
+asiaexindia = ['China', 'Indonesia', 'South Korea', 'Malaysia', 'Pakistan', 'Philippines',
+           'Taiwan', 'Thailand', 'Hong Kong', 'Japan', 'Singapore']
+
+asiaexindiachina = ['Indonesia', 'South Korea', 'Malaysia', 'Pakistan', 'Philippines',
+           'Taiwan', 'Thailand', 'Hong Kong', 'Japan', 'Singapore']
+
+emexchina = ['Argentina', 'Brazil', 'Chile', 'Colombia', 'Czech Republic', 'Egypt', 'Greece', 'Hungary', 'India', 'Indonesia',
+  'South Korea', 'Kuwait', 'Malaysia', 'Mexico', 'Peru', 'Philippines', 'Poland', 'Qatar', 'Russia', 'South Africa',
+  'Taiwan', 'Thailand', 'Turkey', 'United Arab Emirates', 'Vietnam', 'Saudi Arabia', 'Pakistan']
+
+emasia = ['China', 'India', 'Indonesia', 'South Korea', 'Malaysia', 'Pakistan', 'Philippines', 'Taiwan', 'Thailand']
+
+europe = ['Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Italy', 'Netherlands', 'Norway',
+          'Spain', 'Sweden', 'Switzerland', 'United Kingdom', 'Portugal']
+
+latam = ['Argentina', 'Brazil', 'Chile', 'Colombia', 'Mexico', 'Peru']
+
+emea = ['Czech Republic', 'Egypt', 'Greece', 'Hungary', 'Kuwait', 'Poland', 'Qatar', 'Russia', 'Saudi Arabia',
+        'South Africa', 'Turkey', 'United Arab Emirates']
+
+me=['Bahrain', 'Cyprus', 'Egypt', 'Iran', 'Iraq','Israel','Jordan','Kuwait','Lebanon','Oman','Qatar','Saudi Arabia','Turkey','UAE']
+
+india = ['India']
+
+us= ['United States']
+
+china = ['China']
 
 @st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def eqetf_filter(category, country, currency):
@@ -392,6 +352,15 @@ if side_options == 'Equities':
 	eq_pivot_styled = pivot_table(country=country, ind=ind, maxmcap=maxmcap, minmcap=minmcap)
 	print(st.dataframe(eq_pivot_styled, height=500))
 	st.markdown(get_table_download_link(eq_pivot_styled), unsafe_allow_html=True)
+
+	#REGIONAL - EQUITY
+	st.title('Global Equities - Regional Performance Table')
+	st.subheader('Compare Market Cap Weighted Industry Returns across Major Regions')
+	period = st.selectbox('Period: ', ['1D', '1W', '1M', '3M', 'YTD'], key='rot')
+	level=st.selectbox('Level: ', ['Industry', 'Sub-Industry'], key='rot')
+	reg_equity = regional_sect_perf(period, level)
+	print(st.dataframe(reg_equity, height=500))
+	st.markdown(get_table_download_link(reg_equity), unsafe_allow_html=True)
 
 	#SCREENER - EQUITY
 	st.title('Global Equities Screener')
@@ -622,227 +591,51 @@ if side_options == 'REITs':
 
 
 # ----------------------------- COMMODITIES SIDEPANEL ---------------------------------------------------------------------
-@st.cache
-def import_data(asset_class):
-    """
-    Imports Historical Data for Mentioned ETFs
-    asset_class = mention the asset class for ETFs data import (str)
-    options available = 'Fixed Income', 'REIT', 'Currencies', 'Commodities', 'World Equities', 'Sector Equities'
-    """
-    #Import list of ETFs and Ticker Names
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name='Commodities', engine='openpyxl')
-
-    #Build an empty df to store historical 1 year data
-    df = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
-    df.index.name='Date'
-    def hist_data_comd(name):
-    	oneyr = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year-1)
-    	tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
-    	df = investpy.get_commodity_historical_data(commodity=name, from_date=oneyr, to_date=tdy)['Close']
-    	df = pd.DataFrame(df)
-    	df.columns = [name]
-    	return df
-
-    #download and merge all dat
-    for i in range(len(etf_list)):
-    	df = df.join(hist_data_comd(etf_list['Commodities'][i]), on='Date')
-    df = df[:yest].ffill().dropna()
-    df.index.name = 'Date'
-
-    if asset_class=='Commodities':	
-	    ussteel = pd.DataFrame(quandl.get("CHRIS/CME_HR1")['Settle'])
-	    ussteel.columns = ["US Steel"]
-
-	    ironore = pd.DataFrame(quandl.get("CHRIS/CME_TIO1")['Settle'])
-	    ironore.columns = ["Iron Ore"]
-
-	    shfe = pd.DataFrame(quandl.get("CHRIS/SHFE_RB1")['Settle'])
-	    shfe.columns = ["SHFE Steel Rebar"]
-
-	    rubber = pd.DataFrame(quandl.get("CHRIS/SHFE_RU1")['Settle'])
-	    rubber.columns = ["SHFE Natural Rubber"]
-
-	    soybeans = pd.DataFrame(quandl.get("CHRIS/CME_S1")['Settle'])
-	    soybeans.columns = ["CME Soybeans"]
-	    admetals = ussteel.merge(ironore, on='Date').merge(shfe, on='Date').merge(rubber, on='Date').merge(soybeans, on='Date')
-	    df = df.join(admetals, on='Date').ffill().dropna()
-
-    return df
-
-from pandas.tseries import offsets
-one_m = date.today() - datetime.timedelta(30)
-three_m = date.today() - datetime.timedelta(90)
-six_m = date.today() - datetime.timedelta(120)
-one_yr = date.today() - datetime.timedelta(370)
-ytd = date.today() - offsets.YearBegin()
-year = date.today().year
-yest = date.today() - datetime.timedelta(1)
-now = datetime.datetime.now()
-now = now.strftime("%b %d, %Y %H:%M")
-
-tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
-oneyr = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year-1)
-
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def drawdowns(data):
-    """
-    Max Drawdown in the current calendar year
-    """
-    return_series = pd.DataFrame(data.pct_change().dropna()[str(date.today().year):])
-    wealth_index = 1000*(1+return_series).cumprod()
-    previous_peaks = wealth_index.cummax()
-    drawdowns = (wealth_index - previous_peaks)/previous_peaks
-    return drawdowns.min(axis=0)
-
-#SORTED AND CONDITIONALLY FORMATTED RETURNS DATAFRAME
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def returns_hmap(data, cat, asset_class, start=date(2020,3,23), end=date.today(), sortby='1-Day'):
-    """
-    data = Price Data for the ETFs (dataframe)
-    asset_class = asset class of the ETF (str)
-    cat = subset or category (list), default is all ETFs mentioned
-    """
-    st.subheader("Multi Timeframe Returns of " + str(asset_class))
-    st.markdown("Data as of :  " + str(data.index[-1].strftime("%b %d, %Y")))
-    df = pd.DataFrame(data = (data.iloc[-1,:], data.pct_change(1).iloc[-1,:], data.pct_change(5).iloc[-1,:], data.pct_change(21).iloc[-1,:],
-                              data.pct_change(63).iloc[-1,:], data[str(year):].iloc[-1,:]/data[str(year):].iloc[0,:]-1, data[start:end].iloc[-1,:]/data[start:end].iloc[0,:]-1,
-                              data.pct_change(126).iloc[-1,:], data.pct_change(252).iloc[-1,:], drawdowns(data)))
-    df.index = ['Price','1-Day', '1-Week', '1-Month', '3-Month', 'YTD', 'Custom', '6-Month', '1-Year', 'Max DD']
-    df_perf = df.T
-    df_perf.iloc[:,1:] = (df_perf.iloc[:,1:]*100)
-    df_perf.index.name = asset_class
-
-    #Add Ticker Names and sort the dataframe
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class, engine='openpyxl')
-    if asset_class=='Indian Equities':
-        df2 = df_perf.copy()
-        df2  = df2.sort_values(by=sortby, ascending=False)
-        df2 = df2.round(2).style.format('{0:,.2f}%')\
-                     .background_gradient(cmap='RdYlGn')\
-                     .set_properties(**{'font-size': '10pt',})
-    else:
-        df2 = df_perf
-        df2  = df2.sort_values(by=sortby, ascending=False)
-        df2 = df2.round(2).style.format('{0:,.2f}%', subset=(df2.drop(['Price'], axis=1).columns))\
-        		 .format('{0:,.2f}', subset='Price')\
-                 .background_gradient(cmap='RdYlGn', subset=(df2.drop(['Price'], axis=1).columns))\
-                 .set_properties(**{'font-size': '10pt',})
-    
-    return df2
-
-#PLOT RETURN CHART BY PLOTLY
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def plot_chart(data, cat, start_date=one_yr):
-    """
-    Returns a Plotly Interactive Chart for the given timeseries data (price)
-    data = price data for the ETFs (dataframe)
-    """
-    df = ((((1+data[cat].dropna()[start_date:date.today()].pct_change().fillna(0.00))).cumprod()-1)).round(4)
-    fig = px.line(df, x=df.index, y=df.columns)
-    fig.update_layout(xaxis_title='Date',
-                      yaxis_title='Return (%)', font=dict(family="Segoe UI, monospace", size=14, color="#7f7f7f"),
-                      legend_title_text='Securities', plot_bgcolor = 'White', yaxis_tickformat = '%', width=950, height=600)
-    fig.update_traces(hovertemplate='Date: %{x} <br>Return: %{y:.2%}')
-    fig.update_yaxes(automargin=True)
-    return fig
-
-#TREND ANALYSIS
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def trend_analysis(data, cat, start_date=one_yr, inv='B', ma=15):
-    """
-    data = price data (dataframe)
-    inv = daily to be resampled to weekly ('W') or monthly ('BM') return data
-    ma = rolling return lookback period, chose 1 for just daily/monthly etc based incase you resample via inv variable
-    cat =  any subset of data (list - column names of data)
-    """
-    d = (data[cat].pct_change(ma).dropna()[start_date:date.today()].resample(inv).agg(lambda x: (x + 1).prod() - 1).round(4)*100)
-    fig = go.Figure(data=go.Heatmap(
-            z=((d - d.mean())/d.std()).round(2).T.values,
-            x=((d - d.mean())/d.std()).index,
-            y=list(data[cat].columns), zmax=3, zmin=-3,
-            colorscale='rdylgn', hovertemplate='Date: %{x}<br>Security: %{y}<br>Return Z-Score: %{z}<extra></extra>', colorbar = dict(title='Return Z-Score')))
-
-    fig.update_layout(xaxis_nticks=20, font=dict(family="Segoe UI, monospace", size=14, color="#7f7f7f"),width=950, height=600)
-    return fig
-
-# Additional Settings for Interactive Widget Buttons for Charts & Plots
-#Select Time Frame Options
-disp_opts = {one_m: '1 Month', three_m: '3 Months', six_m:'6 Months', ytd: 'Year-to-Date', one_yr:'1-Year'} #To show text in options but have numbers in the backgroud
-def format_func(option):
-    return disp_opts[option]
-
-#Select Daily/Weekly/Monthly data for Trend Analysis
-inv = {'B': 'Daily', 'W': 'Weekly', 'BM': 'Monthly'}
-def format_inv(option):
-    return inv[option]
-
-def display_items(data, asset_class, cat):
-	start= st.date_input("Custom Start Date: ", date(2020,3,23))
-	end = st.date_input("Custom End Date: ", date.today())
-	st.dataframe(returns_hmap(data=data[cat], asset_class=asset_class, cat=cat, start=start, end=end), height=1500)
-	st.markdown(get_table_download_link(returns_hmap(data=data[cat], asset_class=asset_class, cat=cat, start=start, end=end)), unsafe_allow_html=True)
-	st.subheader("Price Return Performance")
-	start_date = st.selectbox('Select Period', list(disp_opts.keys()), index=3, format_func = format_func, key='chart')
-	print(st.plotly_chart(plot_chart(data=data[cat], start_date=start_date, cat=cat)))
-	st.subheader("Rolling Return Trend Heatmap")
-	start_date = st.selectbox('Select Period: ', list(disp_opts.keys()), index=3, format_func = format_func, key='trend')
-	inv_opt = st.selectbox('Select Timescale: ', list(inv.keys()), index=0, format_func = format_inv)
-	ma = st.number_input('Select Rolling Return Period: ', value=15, min_value=1)
-	print(st.plotly_chart(trend_analysis(data=data[cat], cat=cat, start_date=start_date, inv=inv_opt, ma=ma)))
-
-#@st.cache
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def import_data_yahoo(asset_class):
-    """
-    Imports Historical Data for Mentioned ETFs
-    asset_class = mention the asset class for ETFs data import (str)
-    options available = 'Fixed Income', 'REIT', 'Currencies', 'Commodities', 'World Equities', 'Sectoral'
-    """
-    if date.today().month == 1:
-        mth = 11
-    elif date.today().month == 2:
-        mth = 12
-    else:
-        mth = date.today().month-2
-        
-    #Import list of ETFs and Ticker Names
-    etf_list = pd.read_excel('etf_names.xlsx', header=0, sheet_name=asset_class, engine='openpyxl')
-    etf_list = etf_list.sort_values(by='Ticker')
-
-    #Build an empty df to store historical 1 year data
-    df = pd.DataFrame(index=pd.bdate_range(start=one_yr, end=date.today()))
-    df.index.name='Date'
-
-    #download and merge all data
-    df1 = Ticker(list(etf_list['Ticker']), asynchronous=True).history(start=date(date.today().year -1 , mth, date.today().day))['adjclose']
-    df1 = pd.DataFrame(df1).unstack().T.reset_index(0).drop('level_0', axis=1)
-    df1.index.name = 'Date'
-    df1.index = pd.to_datetime(df1.index)
-    df = df.merge(df1, on='Date')
-    #Forward fill for any missing days i.e. holidays
-    df = df.ffill().dropna()
-    df.index.name = 'Date'
-    df.columns = list(etf_list[asset_class])
-    return df
-
-comd = import_data('Commodities')
-fx = import_data_yahoo('Currencies')
+def color_positive_green(val):
+	    """
+	    Takes a scalar and returns a string with
+	    the css property `'color: green'` for positive
+	    strings, black otherwise.
+	    """
+	    if val > 0:
+	        color = 'green'
+	    else:
+	        color = 'red'
+	    return 'color: %s' % color
 
 if side_options == 'Commodities':
-	if st.checkbox('Show Live Data', value=False):
+	st.title('Commodity Futures Performance')
+	comdidx = pd.read_excel("EQ-FX.xlsx", engine='openpyxl', sheet_name='Comd', header=0, index_col=0)
+	comdidx = comdidx.sort_values(by='1D (%)', ascending=False).style.format('{0:,.2%}')\
+					.applymap(color_positive_green)\
+					#.background_gradient(cmap='RdYlGn', subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)','1M (%)', '$YTD(%)'])
+	print(st.dataframe(comdidx, height=500))
+	st.markdown(get_table_download_link(comdidx), unsafe_allow_html=True)
+
+
+	if st.checkbox('Show Live Data', value=True):
 		components.iframe("https://harshshivlani.github.io/x-asset/comd", width=670, height=500)
-	if st.checkbox('Show Live Chart'):
+	if st.checkbox('Show Live Chart',value=True):
 		components.iframe("https://harshshivlani.github.io/x-asset/equity-chart", width=1000, height=550)
-	st.write('**Note:** All returns are in USD')
-	print(display_items(comd, 'Commodities', cat=list(comd.columns)))	
 	
 
+#################-------------------------Fixed Income-------------------------------#######################
+
 if side_options == 'FX':
+	st.title('Spot FX Performance')
+	fxidx = pd.read_excel("EQ-FX.xlsx", engine='openpyxl', sheet_name='FX', header=0, index_col=0)
+	fxidx = fxidx.sort_values(by='1D', ascending=False).style.format('{0:,.2%}', subset=['Interest Rates', '1D', '1W','1M','3M','6M','YTD'])\
+					.applymap(color_positive_green, subset=['1D', '1W','1M','3M','6M','YTD'])\
+					#.background_gradient(cmap='RdYlGn', subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)','1M (%)', '$YTD(%)'])
+	print(st.dataframe(fxidx, height=500))
+	st.markdown(get_table_download_link(fxidx), unsafe_allow_html=True)
+
+
+
 	if st.checkbox('Show Live Data', value=True):
 		components.iframe("https://harshshivlani.github.io/x-asset/cur", width=670, height=500)
 	if st.checkbox('Show Live Chart'):
 		components.iframe("https://harshshivlani.github.io/x-asset/equity-chart", height=500)
-	print(display_items(fx, 'Currencies', cat=list(fx.columns)))
 
 
 #################-------------------------Fixed Income-------------------------------#######################
@@ -892,7 +685,19 @@ def fi_filter(category, country, currency):
 	                   .format('{0:,.2f}M', subset=["20D T/O"])\
 	                   .background_gradient(cmap='RdYlGn', subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
 
-if side_options =='Fixed Income ETFs':
+if side_options =='Fixed Income':
+	st.subheader('Sovereign 10-Year Bond Yield Movements')
+	st.write('Note: Yield change is in local currency and is denoted in basis points (bps). Source: Bloomberg.')
+	bondidx = pd.read_excel("EQ-FX.xlsx", engine='openpyxl', sheet_name='Bonds', header=0, index_col=0)
+	bondidx = bondidx.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=['Yield'])\
+					 .format('{0:,.1f}', subset=['1D', '1W','1M','3M','YTD', '6M', '1Y'])\
+					.applymap(color_positive_green, subset=['1D', '1W','1M','3M','YTD', '6M', '1Y'])\
+					#.background_gradient(cmap='RdYlGn', subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)','1M (%)', '$YTD(%)'])
+	print(st.dataframe(bondidx, height=500))
+	st.markdown(get_table_download_link(bondidx), unsafe_allow_html=True)
+
+
+	st.subheader('Bond ETF Performance')
 	fi_country = st.selectbox('Country: ', fi_cntry, key='fi_cnt_pivot')
 	fi_currency = st.selectbox('Currency: ', fi_cur, key='fi_cur_pivot')
 	if fi_currency !="All":
@@ -904,160 +709,6 @@ if side_options =='Fixed Income ETFs':
 
 
 ##################-------------------Global Yields----------------#############################
-
-@st.cache(allow_output_mutation=True)
-def global_yields(countries=['U.S.', 'Germany', 'U.K.', 'Italy', 'France', 'Canada', 'China', 'Australia', 'Japan', 'India', 'Russia', 'Brazil', 'Philippines', 'Thailand']):
-    def ytm(country, maturity):
-    	df = pd.DataFrame(investpy.get_bond_historical_data(bond= str(country)+' '+str(maturity), from_date=oneyr, to_date=tdy)['Close'])
-    	df.columns = [str(country)]
-    	df.index = pd.to_datetime(df.index)
-    	return pd.DataFrame(df)
-    
-    tdy = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year)
-    oneyr = str(date.today().day)+'/'+str(date.today().month)+'/'+str(date.today().year-1)
-    
-    tens = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
-    tens.index.name='Date'
-
-    fives = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
-    fives.index.name='Date'
-
-    twos = pd.DataFrame(index=pd.bdate_range(start=oneyr, end=date.today()))
-    twos.index.name='Date'
-
-    cntry = countries
-    
-    for i in range(len(cntry)):
-                tens = tens.merge(ytm(cntry[i], '10Y'), on='Date')
-    for i in range(len(cntry)):
-                fives = fives.merge(ytm(cntry[i], '5Y'), on='Date')
-    for i in range(len(cntry)):
-                twos = twos.merge(ytm(cntry[i], '2Y'), on='Date')
-      
-    ytd = date.today() - offsets.YearBegin()
-    #10 Year
-    teny = pd.DataFrame(data= (tens.iloc[-1,:], tens.diff(1).iloc[-1,:]*100, tens.diff(1).iloc[-5,:]*100, (tens.iloc[-1,:] - tens[ytd:].iloc[0,:])*100, (tens.iloc[-1,:]-tens.iloc[0,:])*100))
-    teny = teny.T
-    cols = [('10Y', 'Yield'),('10Y', '1 Day'), ('10Y', '1 Week'), ('10Y', 'YTD'), ('10Y', '1 Year')]
-    teny.columns = pd.MultiIndex.from_tuples(cols)
-    teny.index.name='Countries'
-    
-    #5 Year
-    fivey = pd.DataFrame(data= (fives.iloc[-1,:], fives.diff(1).iloc[-1,:]*100, fives.diff(1).iloc[-6,:]*100,(fives.iloc[-1,:] - fives[ytd:].iloc[0,:])*100, (fives.iloc[-1,:]-fives.iloc[0,:])*100))
-    fivey = fivey.T
-    cols = [('5Y', 'Yield'),('5Y', '1 Day'), ('5Y', '1 Week'), ('5Y', 'YTD'), ('5Y', '1 Year')]
-    fivey.columns = pd.MultiIndex.from_tuples(cols)
-    fivey.index.name='Countries'
-    
-    #2 Year
-    twoy = pd.DataFrame(data= (twos.iloc[-1,:], twos.diff(1).iloc[-1,:]*100, twos.diff(1).iloc[-6,:]*100, (twos.iloc[-1,:] - twos[ytd:].iloc[0,:])*100, (twos.iloc[-1,:]-twos.iloc[0,:])*100))
-    twoy = twoy.T
-    cols = [('2Y', 'Yield'),('2Y', '1 Day'), ('2Y', '1 Week'), ('2Y', 'YTD'), ('2Y', '1 Year')]
-    twoy.columns = pd.MultiIndex.from_tuples(cols)
-    twoy.index.name='Countries'
-    
-    yields = twoy.merge(fivey, on='Countries').merge(teny, on='Countries')
-    
-    data = yields.style.format('{0:,.3f}%', subset=[('2Y', 'Yield'), ('5Y', 'Yield'), ('10Y', 'Yield')])\
-            .background_gradient(cmap='RdYlGn_r', subset=list(yields.columns.drop(('2Y', 'Yield')).drop(('5Y', 'Yield')).drop(('10Y', 'Yield')))).set_precision(2)
-    return data
-
-@st.cache
-def yield_curve(country='United States'):    
-    df = investpy.bonds.get_bonds_overview(country=country)
-    df.set_index('name', inplace=True)
-    if country=='United States':
-        df.index = df.index.str.strip('U.S.')
-    elif country =='United Kingdom':
-        df.index = df.index.str.strip('U.K.')
-    else:
-        df.index = df.index.str.strip(country)
-    return df['last']
-
-
-us = yield_curve('United States')
-uk = yield_curve('United Kingdom')
-china = yield_curve('China')
-aus = yield_curve('Australia')
-germany = yield_curve('Germany')
-japan = yield_curve('Japan')
-can = yield_curve('Canada')
-ind = yield_curve('India')
-italy = yield_curve('Italy')
-france = yield_curve('France')
-rus = yield_curve('Russia')
-phil = yield_curve('Philippines')
-thai = yield_curve('Thailand')
-brazil = yield_curve('Brazil')
-
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def show_yc():
-    fig = make_subplots(
-        rows=7, cols=2,
-        subplot_titles=("United States", "United Kingdom", "China", "Australia", "Germany", "Japan", "Canada", "India", "Italy", "France", "Brazil", "Thailand", "Philippines", "Russia"))
-
-    fig.add_trace(go.Scatter(x=us.index, y=us, mode='lines+markers', name='US', line_shape='spline'),
-                  row=1, col=1)
-
-    fig.add_trace(go.Scatter(x=uk.index, y=uk, mode='lines+markers', name='UK', line_shape='spline'),
-                  row=1, col=2)
-
-    fig.add_trace(go.Scatter(x=china.index, y=china, mode='lines+markers', name='China', line_shape='spline'),
-                  row=2, col=1)
-
-    fig.add_trace(go.Scatter(x=aus.index, y=aus, mode='lines+markers', name='Australia', line_shape='spline'),
-                  row=2, col=2)
-
-    fig.add_trace(go.Scatter(x=germany.index, y=germany, mode='lines+markers', name='Germany', line_shape='spline'),
-                  row=3, col=1)
-
-    fig.add_trace(go.Scatter(x=japan.index, y=japan, mode='lines+markers', name='Japan', line_shape='spline'),
-                  row=3, col=2)
-
-    fig.add_trace(go.Scatter(x=can.index, y=can, mode='lines+markers', name='Canada', line_shape='spline'),
-                  row=4, col=1)
-
-    fig.add_trace(go.Scatter(x=ind.index, y=ind, mode='lines+markers', name='India', line_shape='spline'),
-                  row=4, col=2)
-
-    fig.add_trace(go.Scatter(x=italy.index, y=italy, mode='lines+markers', name='Italy', line_shape='spline'),
-                  row=5, col=1)
-
-    fig.add_trace(go.Scatter(x=france.index, y=france, mode='lines+markers', name='France', line_shape='spline'),
-                  row=5, col=2)
-
-    fig.add_trace(go.Scatter(x=brazil.index, y=brazil, mode='lines+markers', name='Brazil', line_shape='spline'),
-                  row=6, col=1)
-
-    fig.add_trace(go.Scatter(x=thai.index, y=thai, mode='lines+markers', name='Thailand', line_shape='spline'),
-                  row=6, col=2)
-
-    fig.add_trace(go.Scatter(x=phil.index, y=phil, mode='lines+markers', name='Philippines', line_shape='spline'),
-                  row=7, col=1)
-
-    fig.add_trace(go.Scatter(x=rus.index, y=rus, mode='lines+markers', name='Russia', line_shape='spline'),
-                  row=7, col=2)
-
-    fig.update_layout(height=3000, width=900, showlegend=False)
-    fig.update_yaxes(title_text="Yield (%)", showgrid=True, zeroline=True, zerolinecolor='red', tickformat = '.3f')
-    fig.update_xaxes(title_text="Maturity (Yrs)")
-    fig.update_layout(font=dict(family="Segoe UI, monospace", size=13, color="#7f7f7f")
-                  ,plot_bgcolor = 'White', hovermode='x')
-    fig.update_traces(hovertemplate='Maturity: %{x} <br>Yield: %{y:.3f}%')
-    fig.update_yaxes(automargin=True)
-
-    return fig
-
-global_yields_sov = global_yields()
-global_yc = show_yc()
-if side_options == 'Global Sovereign Yields':
-	st.subheader('Global Sovereign Yields (2Y, 5Y, 10Y)')
-	st.write(global_yields_sov)
-	st.subheader('Global Sovereign Yield Curves')
-	st.write(global_yc)
-	st.markdown('Data Source: Investing.com')
-
-
 
 
 
@@ -1101,207 +752,4 @@ if side_options == 'Country Macroeconomic Profile':
      st.dataframe(etf.country_macros(country=countries_list, data_type=data_type), height=1200)
 
 
-if side_options == 'ETF Details':
-	@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-	def etf_details():
-		ticker_name = st.text_input('Enter Ticker Name', value='URTH')
-		asset =  st.selectbox('ETF Asset Class:', ('Equity/REIT ETF', 'Fixed Income ETF'))
-		if asset=='Equity/REIT ETF':
-			details = st.selectbox('Select Data Type:', ('General Overview', 'Top 15 Holdings', 'Sector Exposure',
-                                    'Market Cap Exposure', 'Country Exposure', 'Asset Allocation'))
-		elif asset=='Fixed Income ETF':
-			details = st.selectbox('Select Data Type:', ('General Overview', 'Top 15 Holdings', 'Bond Sector Exposure',
-                                    'Coupon Breakdown', 'Credit Quality Exposure', 'Maturity Profile'))
-		return [ticker_name, details, asset]
-
-	etf_details = etf_details()
-	st.write(etf.etf_details(etf_details[0].upper(), etf_details[1], etf_details[2]))
-	st.write('Data Source: ETFdb.com')
-
-
-
-
 #################-------------------------Summary-------------------------------#######################
-if side_options == 'Cross Asset Summary':
-	components.iframe("https://harshshivlani.github.io/x-asset/livesummary", width=670, height=500)
-
-	st.header('Global Equities')
-	#components.iframe("http://www.teletrader.com/yadea/stocks/details/tts-161915467", height=500)
-	st.subheader('World Equity Heatmap')
-	timeframe = st.selectbox('Timeframe: ', ['Chg L Cy(%)','Chg USD(%)', '$1W(%)','$YTD(%)'], index=1)
-	print(st.plotly_chart(world_map(timeperiod=timeframe)))
-
-	st.subheader('Global Equity & Sectoral Indices')
-	#indices = indices_func()
-	#st.dataframe(indices[0], height=500)
-	usd_indices_updated = updated_world_indices('All', 'Daily')
-	st.dataframe(usd_indices_updated[1], height=500)
-	st.markdown(get_table_download_link(usd_indices_updated[1]), unsafe_allow_html=True)
-
-
-
-	st.subheader('Industry Summary: ')
-	st.write('*Market Cap Weighted Industry Wise USD Returns - Global')
-	ret_inds_summ = st.selectbox('Median Return TimeFrame: ', ['1D', '1W', '1M', '3M', 'YTD'], key='sort_inds_summ')
-	country_inds = st.selectbox('Country: ', all_countries, key='sum inds')
-	df = data.copy()
-	rets_cols = ['1D', '1W', '1M', '3M', 'YTD']
-	df[rets_cols] = df[rets_cols]/100
-	if country_inds !='All':
-		df = df[df['Country']==country_inds]
-		#inds_eq_summ = data[data['Country']==country_inds].groupby(by="Industry").median()
-	elif country_inds =='All':
-		df = df[:]
-		#inds_eq_summ = data.groupby(by="Industry").median()
-
-	old_mcap = (1/(1+df[rets_cols])).multiply(df['Market Cap'], axis='rows')
-	old = old_mcap.join(df['Market Cap'])
-	old.iloc[:,:-1] = -old.iloc[:,:-1].subtract(old.iloc[:,-1], axis='rows')
-	change_sum = old.join(df['Industry']).groupby('Industry').sum().iloc[:,:-1]
-	old_sum = old_mcap.join(df['Industry']).groupby('Industry').sum()
-	mcap_weighted = pd.DataFrame(df.groupby('Industry').sum()['Market Cap']).merge(change_sum.divide(old_sum, axis='rows'), on='Industry')
-	df = mcap_weighted
-	df[rets_cols] = df[rets_cols]*100
-	inds_eq_summ = df[:]
-	top_inds = inds_eq_summ.sort_values(by=ret_inds_summ, ascending=False).head().style.format('{0:,.2f}%', subset=["1D","1W","1M","3M","YTD"])\
-               							.format('{0:,.2f}B', subset=["Market Cap"])\
-               							.background_gradient(cmap='YlGn', subset=["1D","1W","1M","3M","YTD"])
-
-	bot_inds = inds_eq_summ.sort_values(by=ret_inds_summ).head().style.format('{0:,.2f}%', subset=["1D","1W","1M","3M","YTD"])\
-               							.format('{0:,.2f}B', subset=["Market Cap"])\
-               							.background_gradient(cmap='YlOrRd_r', subset=["1D","1W","1M","3M","YTD"])											
-
-	st.markdown('**Global Industries  -  Top Gainers**')
-	st.write(top_inds)
-	st.markdown('**Global Industries  -  Top Losers**')
-	st.write(bot_inds)
-
-	st.subheader('Global Individual Stocks Summary: ')
-	st.write('*Top USD returns across the World')
-	sort_summ = st.selectbox('Return TimeFrame: ', ['1D', '1W', '1M', '3M', 'YTD'], key='stock_summary')
-	country_summ = st.selectbox('Country: ', all_countries)
-	data[percs] = data[percs].fillna(0.00)
-
-	if country_summ !='All':
-		inds_summ = ["All"] + list(data[data['Country'].values==country_summ]['Industry'].unique())
-		eq_inds_summ = st.selectbox('GICS Industry Name: ', inds_summ)
-		if eq_inds_summ != "All":
-			comp = data[(data['Country'].values==country_summ) & (data['Industry'].values==eq_inds_summ)]
-		elif eq_inds_summ == "All":
-			comp = data[data['Country'].values==country_summ]
-	elif country_summ =='All':
-		inds_summ = ["All"] + list(data['Industry'].unique())
-		eq_inds_summ = st.selectbox('GICS Industry Name: ', inds_summ)
-		if eq_inds_summ != "All":
-			comp = data[data['Industry'].values==eq_inds_summ]
-		elif eq_inds_summ == "All":
-			comp = data
-    
-	mcap_slider = st.number_input('Minimum MCap (USD): ', min_value=0.5, max_value=1000.0, value=2.0, step=0.1)			
-	top_comp = comp[comp['Market Cap']>=mcap_slider].set_index('Ticker').sort_values(by=sort_summ, ascending=False).round(2).head(10).style.format('{0:,.2f}%', subset=percs)\
-														.format('{0:,.2f}B', subset=bns)\
-														.format('{0:,.2f}', subset=nums[-1])\
-    													.background_gradient(cmap='YlGn', subset=gradient)
-	bot_comp = comp[comp['Market Cap']>=mcap_slider].set_index('Ticker')
-	bot_comp = bot_comp.T[bot_comp[sort_summ].dropna().index].T.sort_values(by=sort_summ).round(2).head(10).style.format('{0:,.2f}%', subset=percs)\
-														.format('{0:,.2f}B', subset=bns)\
-														.format('{0:,.2f}', subset=nums[-1])\
-    													.background_gradient(cmap='YlOrRd_r', subset=gradient)
-	    	 											
-	st.markdown('**Top Gainers - Equities**')	 												
-	st.write(top_comp)
-	st.markdown('**Top Losers - Equities**')	 												
-	st.write(bot_comp)
-
-
-	st.header('Fixed Income ETFs')	
-	st.write('Median Category Returns:')
-	df = fi_etfs.copy()
-	df = df.groupby(by="Category").median()
-	print(st.dataframe(df.sort_values(by='1D', ascending=False).round(2).style.format('{0:,.2f}%', subset=df.columns[1:10])\
-               .format('{0:,.2f}B', subset=df.columns[0])\
-               .format('{0:,.2f}M', subset=df.columns[-1])\
-               .background_gradient(cmap='RdYlGn', subset=df.columns[2:10])))
-
-
-	df = fi_etfs.copy()
-	cut = gradient + ['1Y', '1W']
-	df[cut] = df[cut].fillna(0.00)
-
-	sort_summ = st.selectbox('Return TimeFrame: ', ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y'], key='fi_in_summ')
-
-	top_fi = df.set_index('Ticker').sort_values(by=sort_summ, ascending=False).round(2).head(10).style.format('{0:,.2f}%', subset=df.columns[7:15])\
-                   .format('{0:,.2f}%', subset=df.columns[5])\
-                   .format('{0:,.2f}B', subset=df.columns[4])\
-                   .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='YlGn', subset=df.columns[7:15])
-	bot_fi = df.set_index('Ticker').sort_values(by=sort_summ).round(2).head(10).style.format('{0:,.2f}%', subset=df.columns[7:15])\
-                   .format('{0:,.2f}%', subset=df.columns[5])\
-                   .format('{0:,.2f}B', subset=df.columns[4])\
-                   .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='YlOrRd_r', subset=df.columns[7:15])
-	st.markdown('**Top Gainers - Fixed Income ETFs**')     
-	print(st.dataframe(top_fi))
-
-	st.markdown('**Top Losers - Fixed Income ETFs**')     
-	print(st.dataframe(bot_fi))
-
-
-
-
-	st.header('Global REITs')
-	st.subheader('Global REITs Summary: ')
-	if st.checkbox('Show Global REITs Industry Median Return Summary', value=True):
-		df = reits.copy()
-		df = df.drop('20D T/O', axis=1)
-
-		country = st.selectbox('Country: ', reit_countries, key='reit_pivot_summ')
-		if country == 'All':
-			df = df.groupby(by="Sub-Industry").median()
-		else:
-			df = df[df['Country']==country].groupby(by="Sub-Industry").median()
-
-		df = df.drop(['Market Cap', 'Dividend Yield'], axis=1)
-		df = df.sort_values(by='1D', ascending=False).round(2).style.format('{0:,.2f}%')\
-                   .background_gradient(cmap='RdYlGn')
-		print(st.dataframe(df))
-
-	if st.checkbox('Show Top Global REITs Movers', value=True):
-		df = reits.copy()
-		df.replace('--', np.nan, inplace=True)
-		cut = gradient + ['1Y', '1W', '3Y']
-		df[cut] = df[cut].fillna(0.00)
-
-		country = st.selectbox('Country: ', reit_countries, key='reit_pivot_summ1')
-		sort_summ = st.selectbox('Return TimeFrame: ', ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '3Y'], key='reit_in_summ')
-		if country == 'All':
-			df = df[:]
-		else:
-			df = df[df['Country']==country]
-
-		top_reit = df.set_index('Ticker').sort_values(by=sort_summ, ascending=False).round(2).head(10).style.format('{0:,.2f}%', subset=df.columns[5:15])\
-               .format('{0:,.2f}B', subset=df.columns[4])\
-               .format('{0:,.2f}M', subset=df.columns[-1])\
-               .background_gradient(cmap='YlGn', subset=df.columns[6:15])
-		st.markdown('**Top Gainers - REIT**')     
-		print(st.dataframe(top_reit))
-
-		bot_reit = df.set_index('Ticker').sort_values(by=sort_summ).round(2).head(10).style.format('{0:,.2f}%', subset=df.columns[5:15])\
-               .format('{0:,.2f}B', subset=df.columns[4])\
-               .format('{0:,.2f}M', subset=df.columns[-1])\
-               .background_gradient(cmap='YlOrRd_r', subset=df.columns[6:15])
-		st.markdown('**Top Losers - REIT**')
-		print(st.dataframe(bot_reit))		
-		
-	st.header('Commodities')
-	start= st.date_input("Custom Start Date: ", date(2020,3,23), key='comm_summ1')
-	end = st.date_input("Custom End Date: ", date.today(), key='comm_summ1')
-	print(st.dataframe(returns_hmap(data=comd[list(comd.columns)], asset_class='Commodities', cat=list(comd.columns), start=start, end=end), height=1500))
-
-	st.header('FX/Currencies')
-	start= st.date_input("Custom Start Date: ", date(2020,3,23), key='fx_summ1')
-	end = st.date_input("Custom End Date: ", date.today(), key='fx_summ1')
-	print(st.dataframe(returns_hmap(data=fx[list(fx.columns)], asset_class='Currencies', cat=list(fx.columns), start=start, end=end), height=1500))
-
-
-st.sidebar.markdown('Developed by Harsh Shivlani')
