@@ -39,7 +39,19 @@ st.write("""
 components.iframe("https://harshshivlani.github.io/x-asset/liveticker")
 st.sidebar.header('Cross Asset Monitor: Contents')
 side_options = st.sidebar.radio('Please Select One:', ('Equities', 'Fixed Income', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar'))
+st.sidebar.write('Developed by Harsh Shivlani')
 
+def color_positive_green(val):
+    """
+    Takes a scalar and returns a string with
+    the css property `'color: green'` for positive
+    strings, black otherwise.
+    """
+    if val > 0:
+        color = 'green'
+    else:
+        color = 'red'
+    return 'color: %s' % color
 
 #Import Master Data
 @st.cache(allow_output_mutation=True)
@@ -122,7 +134,7 @@ def mcap_weighted(df, rets_cols, groupby, reit=False):
 		subs = ["1D","1W","1M","3M","YTD"]
 	df = df.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=subs)\
 	                   .format('{0:,.2f}B', subset=["Market Cap"])\
-	                   .background_gradient(cmap='RdYlGn', subset=subs)
+	                   .applymap(color_positive_green, subset=subs)
 	return df
 
 #@st.cache(suppress_st_warning=True, allow_output_mutation=True)
@@ -146,7 +158,7 @@ def pivot_table(country, ind, maxmcap, minmcap):
 		df = df.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=percs)\
 					.format('{0:,.2f}B', subset=['Market Cap','Rev T12M','FCF T12M'])\
 					.format('{0:,.2f}', subset=nums[-1])\
-					.background_gradient(cmap='RdYlGn', subset=gradient)
+					.applymap(color_positive_green, subset=gradient)
 	return df
 
 
@@ -283,7 +295,7 @@ def eqetf_filter(category, country, currency):
 	return df.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=["Dividend Yield"]+retsetf)\
                    .format('{0:,.2f}B', subset=["Market Cap"])\
                    .format('{0:,.2f}M', subset=["20D T/O"])\
-                   .background_gradient(cmap='RdYlGn', subset=retsetf)
+                   .applymap(color_positive_green, subset=retsetf)
 
 
 
@@ -312,18 +324,6 @@ def get_table_download_link(df):
 
 if side_options == 'Equities':
 	#INDEX DATA
-	def color_positive_green(val):
-	    """
-	    Takes a scalar and returns a string with
-	    the css property `'color: green'` for positive
-	    strings, black otherwise.
-	    """
-	    if val > 0:
-	        color = 'green'
-	    else:
-	        color = 'red'
-	    return 'color: %s' % color
-
 	st.title('Global Equity Indices')
 	eqidx = pd.read_excel("EQ-FX.xlsx", engine='openpyxl', sheet_name='EQ', header=0, index_col=0)
 	eqidx = eqidx.sort_values(by='Chg USD(%)', ascending=False).style.format('{0:,.2%}', subset=['Chg L Cy(%)', 'Chg USD(%)', '$1W(%)',
@@ -408,7 +408,7 @@ if side_options == 'Equities':
 			all_eq1 = num_func(filter_table(country=country, ind=ind, subind=subind, maxmcap=maxmcap, minmcap=minmcap), sortby, num).style.format('{0:,.2f}%', subset=percs)\
 	    								.format('{0:,.2f}', subset=nums)\
 	                                    .format('{0:,.2f}B', subset=bns)\
-	                                    .background_gradient(cmap='RdYlGn', subset=gradient)
+	                                    .applymap(color_positive_green, subset=gradient)
 			st.dataframe(all_eq1, height=600)
 			st.markdown(get_table_download_link(all_eq1), unsafe_allow_html=True)
 
@@ -417,7 +417,7 @@ if side_options == 'Equities':
 		eqs_f_styled = eqs_f.style.format('{0:,.2f}%', subset=percs)\
 	    								.format('{0:,.2f}', subset=nums)\
 	                                    .format('{0:,.2f}B', subset=bns)\
-	                                    .background_gradient(cmap='RdYlGn', subset=gradient)
+	                                    .applymap(color_positive_green, subset=gradient)
 		if st.button('Show Results'):
 			st.dataframe(eqs_f_styled, height=600)
 			st.markdown(get_table_download_link(eqs_f_styled), unsafe_allow_html=True)
@@ -511,7 +511,7 @@ def filter_reit(country, subind, maxmcap, minmcap):
     df_style = df.set_index('Ticker').sort_values(by='Market Cap', ascending=False).style.format('{0:,.2f}%', subset=df.columns[5:15])\
                    .format('{0:,.2f}B', subset=df.columns[4])\
                    .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='RdYlGn', subset=df.columns[6:15])
+                   .applymap(color_positive_green, subset=df.columns[6:15])
 
     return df_style
 
@@ -541,7 +541,7 @@ def reit_pivot_table(country, ind, maxmcap, minmcap):
     			   .format('{0:,.2f}%', subset=df.columns[4])\
                    .format('{0:,.2f}B', subset=df.columns[3])\
                    .format('{0:,.2f}M', subset=df.columns[-1])\
-                   .background_gradient(cmap='RdYlGn', subset=df.columns[5:14])
+                   .applymap(color_positive_green, subset=df.columns[5:14])
     else:
     	return df
 
@@ -591,17 +591,6 @@ if side_options == 'REITs':
 
 
 # ----------------------------- COMMODITIES SIDEPANEL ---------------------------------------------------------------------
-def color_positive_green(val):
-	    """
-	    Takes a scalar and returns a string with
-	    the css property `'color: green'` for positive
-	    strings, black otherwise.
-	    """
-	    if val > 0:
-	        color = 'green'
-	    else:
-	        color = 'red'
-	    return 'color: %s' % color
 
 if side_options == 'Commodities':
 	st.title('Commodity Futures Performance')
@@ -670,20 +659,20 @@ def fi_filter(category, country, currency):
 	    return df.set_index('Ticker').sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=["Dividend Yield","1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])\
 	                   .format('{0:,.2f}B', subset=["Market Cap"])\
 	                   .format('{0:,.2f}M', subset=["20D T/O"])\
-	                   .background_gradient(cmap='RdYlGn', subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
+	                   .applymap(color_positive_green,  subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
 
 	elif category == 'None':
 	    df = df.groupby(by="Category").median()
 	    return df.sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=["Dividend Yield","1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])\
 	                   .format('{0:,.2f}B', subset=["Market Cap"])\
 	                   .format('{0:,.2f}M', subset=["20D T/O"])\
-	                   .background_gradient(cmap='RdYlGn', subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
+	                   .applymap(color_positive_green, subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
 	else:
 	    df = df[df['Category'] == category]
 	    return df.set_index('Ticker').sort_values(by='1D', ascending=False).style.format('{0:,.2f}%', subset=["Dividend Yield","1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])\
 	                   .format('{0:,.2f}B', subset=["Market Cap"])\
 	                   .format('{0:,.2f}M', subset=["20D T/O"])\
-	                   .background_gradient(cmap='RdYlGn', subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
+	                   .applymap(color_positive_green, subset=["1D","1W","1M","3M","6M","YTD","1Y","% 52W High"])
 
 if side_options =='Fixed Income':
 	st.subheader('Sovereign 10-Year Bond Yield Movements')
