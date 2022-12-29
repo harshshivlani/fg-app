@@ -38,7 +38,7 @@ st.write("""
 """)
 components.iframe("https://harshshivlani.github.io/x-asset/liveticker")
 st.sidebar.header('Cross Asset Monitor: Contents')
-side_options = st.sidebar.radio('Please Select One:', ('Equities', 'Fixed Income', 'REITs', 'Commodities', 'FX', 'Macroeconomic Data', 'Country Macroeconomic Profile','Economic Calendar'))
+side_options = st.sidebar.radio('Please Select One:', ('Equities', 'Fixed Income', 'REITs', 'Commodities', 'FX'))
 st.sidebar.write('Developed by Harsh Shivlani')
 
 def color_positive_green(val):
@@ -696,49 +696,3 @@ if side_options =='Fixed Income':
 
 	print(st.dataframe(fi_filter(category=fi_category, country=fi_country, currency=fi_currency), height=700))
 
-
-##################-------------------Global Yields----------------#############################
-
-
-
-
-###############------------------Extras---------------------------##############################
-if side_options=='Macroeconomic Data':
-     st.subheader('Macroeconomic Data')
-     cat = st.selectbox('Select Data Category: ', ('World Manufacturing PMIs', 'GDP', 'Retail Sales', 'Inflation', 'Unemployment'))
-     if cat == 'World Manufacturing PMIs':
-         st.subheader('World Manufacturing PMIs')
-         continent = st.selectbox('Select Continent', ('World', 'G20', 'America', 'Europe', 'Asia', 'Africa'))
-         st.dataframe(etf.world_pmis(continent=continent), width=1000, height=1500)
-     elif cat == 'GDP':
-         st.subheader('World GDP Data')
-         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
-         st.dataframe(etf.gdp(continent=continent), width=1200, height=2000)
-     elif cat=='Retail Sales':
-         st.subheader('Retail Sales')
-         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
-         time = st.selectbox('Select Period: ', ('YoY', 'MoM'))
-         st.dataframe(etf.retail(continent=continent, time=time), width=1200, height=2000)
-     elif cat == 'Inflation':
-         st.subheader('World Inflation Data')
-         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
-         st.dataframe(etf.inflation(continent=continent), width=1200, height=2000)
-     elif cat == 'Unemployment':
-         st.subheader('World Unemployment Data')
-         continent = st.selectbox('Select Continent', ('G20', 'World', 'America', 'Europe', 'Asia', 'Africa'))
-         st.dataframe(etf.unemp(continent=continent), width=1200, height=2000)
-
-if side_options == 'Economic Calendar':
-     st.subheader('Economic Calendar')
-     components.iframe("https://harshshivlani.github.io/x-asset/ecocalendar", height=800)
-     #importances = st.multiselect('Importance: ', ['Low', 'Medium', 'High'], ['Medium', 'High'])
-     #st.dataframe(etf.eco_calendar(importances=importances), width=2000, height=1200)
-
-if side_options == 'Country Macroeconomic Profile':
-     st.subheader('Country Macroeconomic Profile')
-     countries_list = st.selectbox('Select Country: ', ["United-States", "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua-and-Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bosnia-and-Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina-Faso","Burundi","Cambodia","Cameroon","Canada","Cape-Verde","Cayman-Islands","Central-African-Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa-Rica","Croatia","Cuba","Cyprus","Czech-Republic","Denmark","Djibouti","Dominica","Dominican-Republic","East-Timor","Ecuador","Egypt","El-Salvador","Equatorial-Guinea","Eritrea","Estonia","Ethiopia","Euro-Area","Faroe-Islands","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hong-Kong","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle-of-Man","Israel","Italy","Ivory-Coast","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Macao","Macedonia","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Mauritania","Mauritius","Mexico","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nepal","Netherlands","New-Zealand","Nicaragua","Niger","Nigeria","North-Korea","Norway","Oman","Pakistan","Palestine","Panama","Paraguay","Peru","Philippines","Poland","Portugal","Puerto-Rico","Qatar","Republic-of-the-Congo","Romania","Russia","Rwanda","Sao-Tome-and-Principe","Saudi-Arabia","Senegal","Serbia","Seychelles","Sierra-Leone","Singapore","Slovakia","Slovenia","Somalia","South-Africa","South-Korea","South-Sudan","Spain","Sri-Lanka","Sudan","Suriname","Swaziland","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Trinidad-and-Tobago","Tunisia","Turkey","Turkmenistan","Uganda","Ukraine","United-Arab-Emirates","United-Kingdom","United-States","Uruguay","Uzbekistan","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"])
-     data_type = st.selectbox('Data Category: ', ['Overview', 'GDP', 'Labour', 'Inflation', 'Money', 'Trade', 'Government', 'Taxes', 'Business', 'Consumer'])
-     st.dataframe(etf.country_macros(country=countries_list, data_type=data_type), height=1200)
-
-
-#################-------------------------Summary-------------------------------#######################
