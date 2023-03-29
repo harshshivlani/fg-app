@@ -36,7 +36,7 @@ from IPython.core.display import display, HTML
 st.write("""
 # Cross Asset Market Analytics
 """)
-st.write('Data as of 27th March, 2023 (EOD)')
+st.write('Data as of 28th March, 2023 (EOD)')
 components.iframe("https://harshshivlani.github.io/x-asset/liveticker")
 st.sidebar.header('Cross Asset Monitor: Contents')
 side_options = st.sidebar.radio('Please Select One:', ('Equities', 'Fixed Income', 'REITs', 'Commodities', 'FX'))
