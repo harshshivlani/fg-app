@@ -1,5 +1,6 @@
 numpy
-pandas<1.1.0
+pandas
+#pandas<1.1.0
 jinja2
 requests
 matplotlib
