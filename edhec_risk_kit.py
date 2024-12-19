@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+import work as work
 
 def drawdown(return_series: pd.Series):
     """
@@ -17,7 +19,22 @@ def drawdown(return_series: pd.Series):
     return pd.DataFrame({ "Wealth Index": wealth_index,
                           "Previous Peaks": previous_peaks,
                           "Drawdowns": drawdowns
-                         })  
+                         })
+
+def max_drawdown_streak(drawdown_series):
+    """
+    Takes drawdown data series as input 
+    Returns the no. of days/weeks/months (based on input data frequency) that the strategy was underwater or in drawdown for
+    Use df.apply(max_drawdown_streak, axis=0) to yield results
+    """
+    drawdown_array = drawdown_series.values !=0
+    changes = np.diff(np.concatenate(([0], drawdown_array, [0])))
+    
+    starts = np.where(changes==1)[0]
+    ends = np.where(changes==-1)[0]
+    
+    streak_lengths = ends-starts
+    return streak_lengths.max() if len(streak_lengths) > 0 else 0
 
 #Adding a convenience code i.e. last time we had to convert the series, select only hi & low and so on, let's build function that does just that
 def get_ffme_returns():
@@ -249,6 +266,17 @@ def sortino_ratio(r, periods_per_year, rf):
     ann_excess_ret = annualized_ret(excess_return, periods_per_year)
     ann_vol = semideviation(r, periods_per_year)
     return ann_excess_ret/ann_vol
+
+def information_ratio(r, bmk_r, periods_per_year):
+    """
+    Returns information ratio given fund and benchmark returns
+    """ 
+    
+    excess_cagr = annualized_ret(r, periods_per_year)-annualized_ret(bmk_r, periods_per_year)
+    vol_excess_cagr = (r.T-bmk_r).T.std(ddof=1)*np.sqrt(periods_per_year)
+
+    return excess_cagr/vol_excess_cagr
+    
     
 #Lets Define Portfolio Returns & Volatility for a given weight matrix
 def portfolio_returns(weights, returns):
@@ -491,13 +519,231 @@ def run_cppi(risky_r, safe_r=None, m=3, start=1000, floor=0.8, riskfree_rate=0.0
                     }
     return backtest_result
 
+def beta_slope(r, bmk_r):
+    """
+    Returns the beta of a stock or fund with the benchmark
+    
+    r = dataframe with return of funds/stocks
+    bmk_r = dataframe with return of the benchmark to be considered
+    
+    """
+    beta = np.polyfit(x=bmk_r, y=r, deg=1)[0]
+    return pd.Series(beta, index=r.T.index)
 
-def summary_stats(r, riskfree_rate=0.03, periods_per_year=12):
+def jensen_alpha(r, bmk_r, riskfree_rate, periods_per_year):
+    """
+    Returns the jensen's alpha against a benchmark
+    
+    r = dataframe with return of funds/stocks
+    bmk_r = dataframe with return of the benchmark to be considered
+    
+    """
+    jalpha = annualized_ret(r, periods_per_year)-(riskfree_rate + (beta_slope(r, bmk_r)*(annualized_ret(bmk_r,periods_per_year)-riskfree_rate)))
+    return jalpha
+
+def hit_ratio(r, bmk_r, period):
+    """
+    Returns the % of calendars quarters the fund outperforms the benchmark (based on input data freq)
+    r = fund/stock returns
+    bmk_r = benchmark returns
+    period can be either 'Monthly' or 'Quarterly'
+    """
+    r = (1+r).cumprod()
+    bmk_r = (1+bmk_r).cumprod()
+    r = work.rebase_timeframe(r, period).pct_change().dropna()
+    bmk_r = work.rebase_timeframe(bmk_r, period).pct_change().dropna()
+    
+    return ((r.T>bmk_r).T*1).sum()/len(r)
+
+
+def hit_ratio(r, bmk_r, period):
+    """
+    Returns the % of calendars quarters the fund outperforms the benchmark (based on input data freq),
+    the average positive alpha, average negative alpha, probability weighted alpha (using hit ratio as probability),
+    rolling 1-year return hit ratio and rolling 3-year return hit ratio
+    
+    r = fund/stock returns
+    bmk_r = benchmark returns
+    period can be either 'Monthly' or 'Quarterly'
+    """
+    r = (1+r).cumprod()
+    bmk_r = (1+bmk_r).cumprod()
+    r = work.rebase_timeframe(r, period).pct_change().dropna()
+    bmk_r = work.rebase_timeframe(bmk_r, period).pct_change().dropna()
+    
+    hit_ratio = pd.DataFrame(((r.T>bmk_r).T*1).sum()/len(r), columns = ['Hit Ratio('+str(period)+')'])
+    
+    alpha = r-pd.DataFrame(bmk_r).values
+    avg_pos_alpha = pd.DataFrame(alpha[alpha>0].mean(), columns = ['Avg Positive Alpha('+str(period)+')'])
+    avg_neg_alpha = pd.DataFrame(alpha[alpha<0].mean(), columns = ['Avg Negative Alpha('+str(period)+')'])
+    prob_alpha = pd.DataFrame((hit_ratio * avg_pos_alpha.values) + ((1-hit_ratio) * avg_neg_alpha.values))
+    prob_alpha.columns = ['Probability Weighted Alpha('+str(period)+')']
+    
+    #rolling 1-year returns
+    r_1y = (1+r).cumprod().pct_change(12).dropna()
+    bmk_r_1y = (1+bmk_r).cumprod().pct_change(12).dropna()
+    
+    #rolling 3-year returns
+    r_3y = (1+r).cumprod().pct_change(12*3).dropna()
+    bmk_r_3y = (1+bmk_r).cumprod().pct_change(12*3).dropna()
+    
+    #% of times rolling 1-year & 3-year return is greater than benchmark
+    roll_1y_hit_ratio = pd.DataFrame(r_1y[r_1y>pd.DataFrame(bmk_r_1y).values].count()/len(r_1y), columns = ['1Y RR Hit Ratio'])
+    
+    roll_3y_hit_ratio = pd.DataFrame(r_3y[r_3y>pd.DataFrame(bmk_r_3y).values].count()/len(r_3y), columns = ['1Y RR Hit Ratio'])
+    
+    #hr_avg_alpha =  hit_ratio.merge(avg_pos_alpha, on='Strategy').merge(avg_neg_alpha, on='Strategy').merge(prob_alpha, on='Strategy').merge(roll_1y_hit_ratio, on='Strategy').merge(roll_3y_hit_ratio, on='Strategy')
+    hr_avg_alpha = pd.concat([hit_ratio, avg_pos_alpha, avg_neg_alpha, prob_alpha, roll_1y_hit_ratio, roll_3y_hit_ratio], axis=1)
+    
+    return hr_avg_alpha
+
+
+
+def upside_capture_ratio(r, bmk_r):
+    """
+    Returns the upside capture by dividing CAGR of portfolio during positive bmk months by bmk CAGR during those months
+    r = fund/stock returns
+    bmk_r = benchmark returns
+    """
+    r = (1+r).cumprod()
+    bmk_r = (1+bmk_r).cumprod()
+    
+    r = work.rebase_timeframe(r, 'Monthly')
+    bmk_r = work.rebase_timeframe(bmk_r, 'Monthly')
+
+    rets = r.merge(bmk_r, on='Date').pct_change().dropna()
+    
+    up_period_rets = rets[rets.iloc[:,-1]>0]
+    up_period_cagr = ((1+up_period_rets).prod()**(12/len(up_period_rets))-1)
+    up_capture = up_period_cagr/up_period_cagr[-1]
+    
+    return up_capture
+
+def downside_capture_ratio(r, bmk_r):
+    """
+    Returns the downside capture by dividing CAGR of portfolio during negative bmk months by bmk CAGR during those months
+    r = fund/stock returns
+    bmk_r = benchmark returns
+    """
+    r = (1+r).cumprod()
+    bmk_r = (1+bmk_r).cumprod()
+    
+    r = work.rebase_timeframe(r, 'Monthly')
+    bmk_r = work.rebase_timeframe(bmk_r, 'Monthly')
+    
+    rets = r.merge(bmk_r, on='Date').pct_change().dropna()
+    
+    down_period_rets = rets[rets.iloc[:,-1]<0]
+    down_period_cagr = ((1+down_period_rets).prod()**(12/len(down_period_rets))-1)
+    down_capture = down_period_cagr/down_period_cagr[-1]
+    
+    return down_capture
+
+
+def rolling_rr_ratios(r, bmk_r, yrs, periods_per_year):
+    """
+    Returns Rolling Sharpe (0) & IR ratio (1) given portfolio(s) and benchmark return data & rolling period (in yrs)
+    """
+    #Wealth index
+    r = pd.DataFrame((1+r).cumprod())
+    bmk_r = pd.DataFrame((1+bmk_r).cumprod())
+    
+    #Merge data
+    df = r.merge(bmk_r, on='Date')
+    
+    #Statistics
+    roll_cagr = ((1+df.pct_change(periods_per_year*yrs))**(1/yrs)-1)                    #rolling annualized return
+    roll_vol = (df.pct_change().rolling(periods_per_year*yrs).std(ddof=1)*np.sqrt(periods_per_year)) #rolling annualized daily volatility
+    excess_cagr = roll_cagr[r.columns]-roll_cagr[bmk_r.columns].values                          #excess annualized CAGR over Nifty 50 benchmark
+    daily_excess_ret = (df[r.columns].pct_change()-df[bmk_r.columns].pct_change().values)       #daily excess return over Nifty 500 benchmark
+    excess_ret_vol = daily_excess_ret.rolling(periods_per_year*yrs).std(ddof=1)*np.sqrt(periods_per_year)  #annualized volatility of daily excess return
+    rolling_ir = pd.DataFrame(excess_cagr/excess_ret_vol)                        #rolling information ratio
+    rolling_rar = roll_cagr/roll_vol                                             #rolling risk adjusted return or RAR
+    
+    return rolling_rar, rolling_ir
+
+
+def summary_stats(r, bmk_r, riskfree_rate=0.03, periods_per_year=12):
     """
     Return a DataFrame that contains aggregated summary stats for the returns in the columns of r
     """
     wealth_index = (1+r).cumprod()
-    total_rets = ((wealth_index.iloc[-1,:]/wealth_index.iloc[0,:]-1)*100).round(2).astype(str) + '%'
+    total_rets = ((wealth_index.iloc[-1,:]/1-1)*100).round(2).astype(str) + '%'
+    ann_r = (r.aggregate(annualized_ret, periods_per_year=periods_per_year)*100).round(2).astype(str) + '%'
+    ann_vol = (r.aggregate(annualized_vol, periods_per_year=periods_per_year)*100).round(2).astype(str) + '%'
+    downside_vol = (r.aggregate(semideviation, periods_per_year=periods_per_year)*100).round(2).astype(str) + '%'
+    beta = beta_slope(r, bmk_r).round(2)
+    ann_sr = r.aggregate(sharpe_ratio, rf=riskfree_rate, periods_per_year=periods_per_year).round(2)
+    sortino = r.aggregate(sortino_ratio, rf=riskfree_rate, periods_per_year=periods_per_year).round(2)
+    dd = (r.aggregate(lambda r: drawdown(r).Drawdowns.min())*100).round(2).astype(str) + '%'
+    jensens_alpha = (jensen_alpha(r, bmk_r, riskfree_rate, periods_per_year)*100).round(2).astype(str) + '%'
+    skew = r.aggregate(skewness).round(2)
+    kurt = r.aggregate(kurtosis).round(2)
+    cf_var5 = (r.aggregate(gaussian_var, modified=True)*100).round(2).astype(str) + '%'
+    hist_cvar5 = (r.aggregate(cvar_historic)*100).round(2).astype(str) + '%'
+    
+    hit_ratio_monthly = (hit_ratio(r, bmk_r, 'Monthly')*100).round(2).astype(str) + '%'
+    hit_ratio_quarterly = (hit_ratio(r, bmk_r, 'Quarterly')*100).round(2).astype(str) + '%'
+    ir = information_ratio(r, bmk_r, periods_per_year).round(2)
+    up_capture_ratio = upside_capture_ratio(r, bmk_r).round(2)
+    down_capture_ratio = downside_capture_ratio(r, bmk_r).round(2)
+    up_down_capture = (up_capture_ratio/down_capture_ratio).round(2)
+    
+    #Rolling Stats
+    roll_1y_mean = (wealth_index.pct_change(periods_per_year).dropna().mean()*100).round(2).astype(str) + '%'
+    roll_1y_median = (wealth_index.pct_change(periods_per_year).dropna().median()*100).round(2).astype(str) + '%'
+    roll_1y_min = (wealth_index.pct_change(periods_per_year).dropna().min()*100).round(2).astype(str) + '%'
+    roll_1y_max = (wealth_index.pct_change(periods_per_year).dropna().max()*100).round(2).astype(str) + '%'
+    roll_3y_mean = (((1+wealth_index.pct_change(periods_per_year*3))**(1/3)-1).dropna().mean()*100).round(2).astype(str) + '%'
+    roll_5y_mean = (((1+wealth_index.pct_change(periods_per_year*5))**(1/5)-1).dropna().mean()*100).round(2).astype(str) + '%'
+    
+    return pd.DataFrame({
+        "Total Return": total_rets,
+        "Annualized Return": ann_r,
+        "Annualized Vol": ann_vol,
+        "Semideviation":downside_vol,
+        "Beta": beta,
+        "Skewness": skew,
+        "Kurtosis": kurt,
+        "Cornish-Fisher VaR (5%)": cf_var5,
+        "Historic CVaR (5%)": hist_cvar5,
+        "Sharpe Ratio": ann_sr,
+        "Sortino Ratio": sortino,
+        "Jensen's Alpha":jensens_alpha,
+        "Information Ratio":ir,
+        "Max Drawdown": dd,
+        
+        "Monthly Hit Ratio":hit_ratio_monthly.iloc[:,0],
+        "Avg. Positive Alpha (Monthly)":hit_ratio_monthly.iloc[:,1],
+        "Avg. Negative Alpha (Monthly)":hit_ratio_monthly.iloc[:,2],
+        "Probability Weighted Alpha (Monthly)":hit_ratio_monthly.iloc[:,3],
+        
+        "Quarterly Hit Ratio":hit_ratio_quarterly.iloc[:,0],
+        "Avg. Positive Alpha (Quarterly)":hit_ratio_quarterly.iloc[:,1],
+        "Avg. Negative Alpha (Quarterly)":hit_ratio_quarterly.iloc[:,2],
+        "Probability Weighted Alpha (Quarterly)":hit_ratio_quarterly.iloc[:,3],
+        
+        "Hit Ratio of 1-Year RR":hit_ratio_monthly.iloc[:,4],
+        "Hit Ratio of 3-Year RR":hit_ratio_monthly.iloc[:,5],        
+        
+        "Upside Capture Ratio": up_capture_ratio,
+        "Downside Capture Ratio": down_capture_ratio,
+        "Upside/Downside Capture Ratio": up_down_capture,
+        
+        "Rolling 1-Year (Avg)":roll_1y_mean,
+        "Rolling 1-Year (Median)":roll_1y_median,
+        "Rolling 1-Year (Min)":roll_1y_min,
+        "Rolling 1-Year (Max)":roll_1y_max,
+        "Rolling 3-Year (Avg)":roll_3y_mean,
+        "Rolling 5-Year (Avg)":roll_5y_mean
+    })
+
+def summary_stats2(r, bmk_r, riskfree_rate=0.03, periods_per_year=12):
+    """
+    Return a DataFrame that contains aggregated summary stats for the returns in the columns of r
+    """
+    wealth_index = (1+r).cumprod()
+    total_rets = ((wealth_index.iloc[-1,:]/1-1)*100).round(2).astype(str) + '%'
     ann_r = (r.aggregate(annualized_ret, periods_per_year=periods_per_year)*100).round(2).astype(str) + '%'
     ann_vol = (r.aggregate(annualized_vol, periods_per_year=periods_per_year)*100).round(2).astype(str) + '%'
     ann_sr = r.aggregate(sharpe_ratio, rf=riskfree_rate, periods_per_year=periods_per_year).round(2)
@@ -507,6 +753,22 @@ def summary_stats(r, riskfree_rate=0.03, periods_per_year=12):
     kurt = r.aggregate(kurtosis).round(2)
     cf_var5 = (r.aggregate(gaussian_var, modified=True)*100).round(2).astype(str) + '%'
     hist_cvar5 = (r.aggregate(cvar_historic)*100).round(2).astype(str) + '%'
+    
+    beta = beta_slope(r, bmk_r).round(2)
+    hit_ratio_monthly = (hit_ratio(r, bmk_r)*100).round(2).astype(str) + '%'
+    ir = information_ratio(r, bmk_r, periods_per_year).round(2)
+    up_capture_ratio = upside_capture_ratio(r, bmk_r).round(2)
+    down_capture_ratio = downside_capture_ratio(r, bmk_r).round(2)
+    up_down_capture = (up_capture_ratio/down_capture_ratio).round(2)
+    
+    #Rolling Stats
+    roll_1y_mean = (wealth_index.pct_change(periods_per_year).dropna().mean()*100).round(2).astype(str) + '%'
+    roll_1y_median = (wealth_index.pct_change(periods_per_year).dropna().median()*100).round(2).astype(str) + '%'
+    roll_1y_min = (wealth_index.pct_change(periods_per_year).dropna().min()*100).round(2).astype(str) + '%'
+    roll_1y_max = (wealth_index.pct_change(periods_per_year).dropna().max()*100).round(2).astype(str) + '%'
+    roll_3y_mean = (((1+wealth_index.pct_change(periods_per_year*3))**(1/3)-1).dropna().mean()*100).round(2).astype(str) + '%'
+    roll_5y_mean = (((1+wealth_index.pct_change(periods_per_year*5))**(1/5)-1).dropna().mean()*100).round(2).astype(str) + '%'
+    
     return pd.DataFrame({
         "Total Return": total_rets,
         "Annualized Return": ann_r,
@@ -517,7 +779,19 @@ def summary_stats(r, riskfree_rate=0.03, periods_per_year=12):
         "Historic CVaR (5%)": hist_cvar5,
         "Sharpe Ratio": ann_sr,
         "Sortino Ratio": sortino,
-        "Max Drawdown": dd
+        "Information Ratio":ir,
+        "Max Drawdown": dd,
+        "Beta": beta,
+        "Monthly Hit Ratio":hit_ratio_monthly,
+        "Upside Capture Ratio": up_capture_ratio,
+        "Downside Capture Ratio": down_capture_ratio,
+        "Upside/Downside Capture Ratio": up_down_capture,
+        "Rolling 1-Year (Avg)":roll_1y_mean,
+        "Rolling 1-Year (Median)":roll_1y_median,
+        "Rolling 1-Year (Min)":roll_1y_min,
+        "Rolling 1-Year (Max)":roll_1y_max,
+        "Rolling 3-Year (Avg)":roll_3y_mean,
+        "Rolling 5-Year (Avg)":roll_5y_mean
     })
 
 def summary_stats1(r, riskfree_rate=0.03, periods_per_year=12):
@@ -525,7 +799,7 @@ def summary_stats1(r, riskfree_rate=0.03, periods_per_year=12):
     Return a DataFrame that contains aggregated summary stats for the returns in the columns of r
     """
     wealth_index = (1+r).cumprod()
-    total_rets = ((wealth_index.iloc[-1,:]/wealth_index.iloc[0,:]-1)*100).round(2)
+    total_rets = ((wealth_index.iloc[-1,:]/1-1)*100).round(2)
     ann_r = (r.aggregate(annualized_ret, periods_per_year=periods_per_year)*100).round(2)
     ann_vol = (r.aggregate(annualized_vol, periods_per_year=periods_per_year)*100).round(2)
     ann_sr = r.aggregate(sharpe_ratio, rf=riskfree_rate, periods_per_year=periods_per_year).round(2)
@@ -1001,3 +1275,46 @@ def shrinkage_cov(r, delta=0.5, **kwargs):
     prior = cc_cov(r, **kwargs)
     sample = sample_cov(r, **kwargs)
     return delta*prior + (1-delta)*sample
+
+
+def ma_cross(prices, ma1, ma2, risk, safe, trans):
+    """
+    ma1, ma2 = Moving average lookback period in business days
+    risk = Ticker for risky asset ETF
+    safe = Ticker for safe asset ETF
+    trans = transaction cost in percentage points
+    """
+    #Download Data
+    df = prices.copy()
+
+    #Calculate Individual Returns
+    df[risk+'-Ret'] = df[risk].pct_change()
+    df[safe+'-Ret'] = df[safe].pct_change()
+
+    #Define MAs
+    df['SMA-1'] = df[risk].rolling(ma1).mean()
+    df['SMA-2'] = df[risk].rolling(ma2).mean()
+
+    #Signal
+    df['Sig'] = np.nan
+    #Crossover Rules
+    df['Sig'][df[(df['SMA-1']>df['SMA-2']) & (df.shift(1)['SMA-1']<df.shift(1)['SMA-2'])].index]=1
+    df['Sig'][df[(df['SMA-1']<df['SMA-2']) & (df.shift(1)['SMA-1']>df.shift(1)['SMA-2'])].index]=-1
+
+    #Clean data for nan values
+    df['Sig'].ffill(inplace=True)
+    df = df[ma2-1:].copy().fillna(1)
+
+    #Return calculation
+    df['Ret'] = np.nan
+    df['Ret'][df['Sig']==1] = df[risk+'-Ret']
+    df['Ret'][df['Sig']==-1] = df[safe+'-Ret']
+
+    #Adjust for transaction cost 
+    df['Ret'][(df['Sig']==1) & (df.shift(1)['Sig']==-1)] = df[safe+'-Ret'][(df['Sig']==1) & (df.shift(1)['Sig']==-1)]-(trans*2/100)
+    df['Ret'][(df['Sig']==-1) & (df.shift(1)['Sig']==1)] = df[risk+'-Ret'][(df['Sig']==-1) & (df.shift(1)['Sig']==1)]-(trans*2/100)
+
+
+    result = df[[risk+'-Ret', safe+'-Ret', 'Ret']]
+    result.columns = [risk, safe, 'TAA Strategy']
+    return result
